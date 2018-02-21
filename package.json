@@ -12,9 +12,10 @@
       "name": "Sindre Aarsaether",
       "email": "sindre@identu.no",
       "url": "http://github.com/somebee/"
-    }],
+    }
+  ],
   "scripts": {
-    "test": "bin/imba test/index.imba",
+    "test": "bin/imba test/index.imba"
   },
   "bugs": "https://github.com/somebee/imba-router/issues",
   "version": "0.1.0",

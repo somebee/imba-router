@@ -7,30 +7,26 @@ class Route
 		@pattern = @raw = str
 		@groups = []
 		@params = {}
-		console.log "init route",self
 		str = str.replace(/\:(\w+)/g) do |m,id|
 			@groups.push(id)
-			self[id] = do @params[id]
 			return "([^\/]*)"
 
 		str = '^' + str
 		str += '$' if @options:exact
+
 		@regex = RegExp.new(str)
-		console.log @pattern,@regex
 
 	def test_
-		var url = @router.url # document:location:hash.slice(1)
-		if @regex
-			let match = url.match(@regex)
-			
-			if match
-				# console.log "matching?",match,@groups
-				for item,i in match
-					if let name = @groups[i - 1]
-						@params[name] = self[name] = item
-				return @params
-			return null
+		var url = @router.url
+		
+		if let match = url.match(@regex)
+			for item,i in match
+				if let name = @groups[i - 1]
+					@params[name] = self[name] = item
+			return @params
+
 		return null
+
 
 class Router
 	@instance = null
@@ -38,28 +34,47 @@ class Router
 	def initialize url
 		@url = url
 		@routes = {}
+		@redirects = {
+			'/old-guide': '/guides'
+		}
+		@aliases = {
+			'/guides': '/guides/one'
+		}
+		setup
+		self
+		
+	def setup
+		if $web$
+			let url = document:location:pathname
+			console.log "redirect url?",url
+			if url and @redirects[url]
+				history.replaceState({},null,@redirects[url])
 		self
 	
 	def url
-		@url || ($web$ ? document:location:hash.slice(1) : '')
+		let url = @url || ($web$ ? document:location:pathname : '')
+		url = @redirects[url] or url
+		@aliases[url] or url
 		
 	def self.instance
 		@instance ||= self.new
+		
+	def history
+		window:history
 		
 	def match pattern, options
 		# what about options?
 		var route = @routes[pattern] ||= Route.new(self,pattern,options)
 		route.test_
-	
-var ROUTER = Router.new
+		
+	def go url
+		url = @redirects[url] or url
+		history.pushState({},null,url)
+
 
 extend tag element
 	prop route watch: yes
 	prop params
-
-	# def routeDidSet route
-	# 	console.log "did set route",route
-	# 	setupRouting
 		
 	def setRoute route, mods
 		console.log "setRoute",route,mods
@@ -71,12 +86,12 @@ extend tag element
 		
 	def setupRouting
 		return if @routedRender
-		@routedRender = self:render
+		let prev = self:render
 
-		self:render = do
+		@routedRender = self:render = do
 			if !@route or @route.test_
 				attachToParent
-				@routedRender.call(self)
+				prev.call(self) if prev
 			else
 				detachFromParent
 		self
@@ -92,3 +107,25 @@ extend tag element
 	if $node$
 		def router
 			@router or (@owner_ ? @owner_.router : (@router ||= Router.new))
+
+extend tag a
+	
+	def onclick e
+		var to = href
+		
+		unless to
+			return
+
+		if e.meta or e.alt
+			e.@responder = null
+			return e.silence.stop
+
+		if to[0] == '#' or to[0] == '/'
+			console.log "goto!!!",to
+			e.prevent.stop
+			router.go(to,{})
+		else
+			e.@responder = null
+			return e.stop
+
+

@@ -116,16 +116,11 @@ extend tag a
 		unless to
 			return
 
-		if e.meta or e.alt
+		if e.meta or e.alt or (to[0] != '#' and to[0] != '/')
 			e.@responder = null
 			return e.silence.stop
 
-		if to[0] == '#' or to[0] == '/'
-			console.log "goto!!!",to
-			e.prevent.stop
-			router.go(to,{})
-		else
-			e.@responder = null
-			return e.stop
+		e.prevent.stop
+		router.go(to,{})
 
 

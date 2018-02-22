@@ -1,72 +1,31 @@
-class Route
-	prop raw
+import {Route} from './Route'
 
-	def initialize router, str, parent
-		@parent = parent
-		@router  = router
-		# @options = options
-		@pattern = @raw = str
-		@groups = []
-		@params = {}
-		@cache = {}
-
-		if str[0] == '@'
-			str = str.slice(1)
-		
-		str = str.replace(/\:(\w+|\*)/g) do |m,id|
-			@groups.push(id) unless id == '*'
-			return "([^\/]*)"
-
-		str = '^' + str
-		# str += '$' if @options:exact
-		@regex = RegExp.new(str)
-
-	def test_ url
-		url ||= @router.url
-		let urlPrefix = ''
-
-		if @parent and @raw[0] == '@'
-			# console.log "route has parent!",@parent.raw
-			if let m = @parent.test_(url)
-				if url.indexOf(m:url) == 0
-					urlPrefix = m:url
-					url = url.slice(m:url:length)
-				# console.log "matched parent",m,url
-				# url = m:url
-		
-		if let match = url.match(@regex)
-			@params:url = urlPrefix + match[0]
-			if @groups:length
-				for item,i in match
-					if let name = @groups[i - 1]
-						@params[name] = self[name] = item
-			return @params
-
-		return null
-		
-	def resolve url
-		url ||= @router.url
-		if @cache:resolveUrl == url
-			return @cache:resolved
-		
-		@cache:resolveUrl = url
-			
-		if @parent and @raw[0] == '@'
-			if let m = @parent.test_
-				@cache:resolved = m:url + @raw.slice(1).replace('$','')
-		else
-			@cache:resolved = @raw.replace(/[\@\$]/g,'')
-		return @cache:resolved
-		# return @parent.resolve + @raw.slice(1).replace('$','')
-		
-
-
+class Resolver
+	def initialize router
+		@router = router
+		@callback = do |value| resolve(value)
+		@router.resolvers.push(self)
+	
+	def resolve result
+		@resolved = yes
+		@result = result
+		@router.resolvers = @router.resolvers.filter do |item|
+			item != self
+		# @router.resolved(self)
+		# very similar to a queue
+		# route.load do
+	
 class Router
 	@instance = null
+	
+	prop mode
+	prop busy
+
 	# support redirects
 	def initialize url
 		@url = url
 		@routes = {}
+		@busy = []
 		@redirects = {
 			'/old-guide': '/guides'
 		}
@@ -96,9 +55,6 @@ class Router
 		window:history
 		
 	def match pattern
-		# if simple
-		# 	let url = url
-		# 	# if pattern
 		var route = @routes[pattern] ||= Route.new(self,pattern)
 		route.test_
 		
@@ -109,14 +65,15 @@ class Router
 
 extend tag element
 	prop route watch: yes
-	prop params
+	prop params watch: yes
 		
 	def setRoute route, mods
 		# console.log "setRoute",route,mods
 		if route != @route
+			@params = {}
 			if route and (!@route or @route.raw != route)
 				let par = null
-				if route[0] == '@'
+				if route[0] != '/'
 					par = getParentRoute
 				@route = Route.new(router,route,par)
 				setupRouting
@@ -125,13 +82,13 @@ extend tag element
 	def setupRouting
 		return if @routedRender
 		let prev = self:render
+		
+		detachFromParent
 
 		@routedRender = self:render = do
-			if !@route or @route.test_
-				attachToParent
-				prev.call(self) if prev
-			else
-				detachFromParent
+			resolveRoute
+			if prev and @params.@active and route.status == 200
+				prev.call(self)
 		self
 		
 	def setRouterUrl url
@@ -146,6 +103,55 @@ extend tag element
 				return par.@route
 			par = par.@owner_
 		return null
+		
+	def resolveRoute next
+		let prev = @params
+		let match = @route.test_
+		
+		# see if url hasnt changed at all?
+		if prev.@next
+			# there is already a function 
+			console.log "already loading"
+
+		if match
+			if match != prev
+				params = match
+				# let cb = do
+				# 	console.log "finished entering route!"
+				# 	attachToParent
+				# 	trigger(:routed,to: @params,from: prev)
+				# Object.assign({@active: true},match)
+				# unless prev:url
+				# 	beforeRouteEnter(@params,prev,cb)
+				# else
+				# 	beforeRouteUpdate(@params,prev,cb)
+
+			if !match.@active
+				match.@active = true
+				attachToParent
+
+		elif prev.@active
+			prev.@active = false
+			let cb = do
+				detachFromParent
+				console.log "finished leaving route!"
+
+			beforeRouteLeave({},prev,cb)
+		
+	def beforeRouteEnter to, from, next
+		log "beforeRouteEnter"
+		next()
+		self
+		
+	def beforeRouteUpdate to, from, next
+		log "beforeRouteUpdate"
+		next()
+		self
+		
+	def beforeRouteLeave to, from, next
+		log "beforeRouteLeave"
+		next()
+		self
 	
 	if $web$
 		def router
@@ -182,8 +188,7 @@ tag navlink < a
 		self
 
 	def resolveLink
-		# might be scoped at multiple levels
-		if @to and @to[0] == '@' and @route.@parent
+		if @to and @to[0] != '/' and @route.@parent
 			href = @route.resolve
 		self
 		

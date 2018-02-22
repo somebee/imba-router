@@ -27,24 +27,35 @@ for item in guides
 	guides[item:id] = item
 
 tag Guide
-	def data
-		guides[route:id]
+	def onrouted e
+		console.log "Guide.onrouted",e.target == self,e.data
+		e.stop
+
+	def paramsDidSet params
+		for item in guides
+			if item:id == params:id
+				break data = item
+		
+		route.load do |res|
+			setTimeout(&,100) do
+				log "loaded"
+				res(200)
 	
 	def render
 		<self>
 			<header>
-				<h1> "Welcome to article {route:id}"
-				<navlink to='@/$'> 'article'
-				<navlink to='@/resources'> 'resources'
-				<navlink to='@/share'> 'share'
+				<h1> "Welcome to article {params:id}"
+				<navlink to='$'> 'article'
+				<navlink to='resources'> 'resources'
+				<navlink to='share'> 'share'
 			
-			<div route='@/$'>
+			<div route='$'>
 				<h2> "Article here"
 			
-			<div route='@/resources'>
+			<div route='resources'>
 				<h2> "Resources here"
 				
-			<div route='@/share'>
+			<div route='share'>
 				<h2> "Sharing here"
 
 tag Guides
@@ -53,21 +64,21 @@ tag Guides
 			<header>
 				<h1> "Guides"
 				for guide in guides
-					<navlink to="@/{guide:id}"> guide:title
+					<navlink to="{guide:id}"> guide:title
 
-				<navlink to='@/one'> 'one'
-				<navlink to='@/two'> 'two'
-				<navlink to='@/three'> 'three'
+				<navlink to='one'> 'one'
+				<navlink to='two'> 'two'
+				<navlink to='three'> 'three'
 			
-			<Guide route='@/:id'>
+			<Guide route=':id'>
 			
-			<div route='@/one'>
+			<div route='one'>
 				<h2> "Guide one"
 			
-			<div route='@/two'>
+			<div route='two'>
 				<h2> "Guide two"
 			
-			<div route='@/three'>
+			<div route='three'>
 				<h2> "Guide three"
 			
 export tag App

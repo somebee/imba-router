@@ -75,7 +75,7 @@ extend tag element
 				let par = null
 				if route[0] != '/'
 					par = getParentRoute
-				@route = Route.new(router,route,par)
+				@route = Route.new(router,route,par,self)
 				setupRouting
 		self
 		

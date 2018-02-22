@@ -2,9 +2,10 @@ export class Route
 	prop raw
 	prop status watch: yes
 
-	def initialize router, str, parent
+	def initialize router, str, parent, node
 		@parent = parent
-		@router  = router
+		@router = router
+		@node = node
 		@pattern = @raw = str
 		@groups = []
 		@params = {}
@@ -49,16 +50,19 @@ export class Route
 		
 	def statusDidSet status, prev
 		let idx = @router.busy.indexOf(self)
+		clearTimeout(@statusTimeout)
 
-		if status == 0
-			console.log "route is now busy!!"
-			@router.busy.push(self)
-		elif idx >= 0
+		if status < 200
+			@router.busy.push(self) if idx == -1
+			@statusTimeout = setTimeout(&,25000) do status = 408
+		elif idx >= 0 and status >= 200
 			@router.busy.splice(idx,1)
 			Imba.commit
+
+		@node?.setFlag('route-status',"status-{status}")
 	
 	def load cb
-		status = 0
+		status = 102
 
 		var handler = @handler = do |res|
 			console.log "value from load.next",res

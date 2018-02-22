@@ -12,6 +12,7 @@ app.get(/.*/) do |req,res|
 	# by setting router-url on the root element
 	var node = <html router-url=path>
 		<head>
+			<link rel="stylesheet" href="/index.css">
 		<body>
 			# include the app tag in body
 			<App>

@@ -1,31 +1,64 @@
 class Route
 	prop raw
 
-	def initialize router, str, options = {}
+	def initialize router, str, parent
+		@parent = parent
 		@router  = router
-		@options = options
+		# @options = options
 		@pattern = @raw = str
 		@groups = []
 		@params = {}
-		str = str.replace(/\:(\w+)/g) do |m,id|
-			@groups.push(id)
+		@cache = {}
+
+		if str[0] == '@'
+			str = str.slice(1)
+		
+		str = str.replace(/\:(\w+|\*)/g) do |m,id|
+			@groups.push(id) unless id == '*'
 			return "([^\/]*)"
 
 		str = '^' + str
-		str += '$' if @options:exact
-
+		# str += '$' if @options:exact
 		@regex = RegExp.new(str)
 
-	def test_
-		var url = @router.url
+	def test_ url
+		url ||= @router.url
+		let urlPrefix = ''
+
+		if @parent and @raw[0] == '@'
+			# console.log "route has parent!",@parent.raw
+			if let m = @parent.test_(url)
+				if url.indexOf(m:url) == 0
+					urlPrefix = m:url
+					url = url.slice(m:url:length)
+				# console.log "matched parent",m,url
+				# url = m:url
 		
 		if let match = url.match(@regex)
-			for item,i in match
-				if let name = @groups[i - 1]
-					@params[name] = self[name] = item
+			@params:url = urlPrefix + match[0]
+			if @groups:length
+				for item,i in match
+					if let name = @groups[i - 1]
+						@params[name] = self[name] = item
 			return @params
 
 		return null
+		
+	def resolve url
+		url ||= @router.url
+		if @cache:resolveUrl == url
+			return @cache:resolved
+		
+		@cache:resolveUrl = url
+			
+		if @parent and @raw[0] == '@'
+			if let m = @parent.test_
+				@cache:resolved = m:url + @raw.slice(1).replace('$','')
+		else
+			@cache:resolved = @raw.replace(/[\@\$]/g,'')
+		return @cache:resolved
+		# return @parent.resolve + @raw.slice(1).replace('$','')
+		
 
 
 class Router
@@ -62,9 +95,11 @@ class Router
 	def history
 		window:history
 		
-	def match pattern, options
-		# what about options?
-		var route = @routes[pattern] ||= Route.new(self,pattern,options)
+	def match pattern
+		# if simple
+		# 	let url = url
+		# 	# if pattern
+		var route = @routes[pattern] ||= Route.new(self,pattern)
 		route.test_
 		
 	def go url
@@ -77,10 +112,13 @@ extend tag element
 	prop params
 		
 	def setRoute route, mods
-		console.log "setRoute",route,mods
+		# console.log "setRoute",route,mods
 		if route != @route
-			if !@route or @route.raw != route
-				@route = Route.new(router,route,mods)
+			if route and (!@route or @route.raw != route)
+				let par = null
+				if route[0] == '@'
+					par = getParentRoute
+				@route = Route.new(router,route,par)
 				setupRouting
 		self
 		
@@ -99,6 +137,15 @@ extend tag element
 	def setRouterUrl url
 		@router ||= Router.new(url)
 		return self
+	
+	def getParentRoute
+		var route = null
+		var par = @owner_
+		while par
+			if par.@route
+				return par.@route
+			par = par.@owner_
+		return null
 	
 	if $web$
 		def router
@@ -123,4 +170,27 @@ extend tag a
 		e.prevent.stop
 		router.go(to,{})
 
+tag navlink < a
+	prop to
+	
+	def setTo to
+		if to != @to
+			@to = to
+			@route = Route.new(router,@to,getParentRoute)
+			href = to.replace('$','')
+			resolveLink
+		self
+
+	def resolveLink
+		# might be scoped at multiple levels
+		if @to and @to[0] == '@' and @route.@parent
+			href = @route.resolve
+		self
+		
+	def refreshRoute
+		resolveLink
+		flagIf('active',@route.test_)
+		
+	def end
+		refreshRoute
 

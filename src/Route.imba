@@ -23,7 +23,11 @@ export class Route
 			return "([^\/]+)"
 
 		path = '^' + path
-		path = path + '$' if @options:exact and path[path:length - 1] != '$'
+		if @options:exact and path[path:length - 1] != '$'
+			path = path + '$'
+		else
+			# we only want to match end OR /
+			path = path + '(?=\/|$)'
 		@regex = RegExp.new(path)
 		self
 

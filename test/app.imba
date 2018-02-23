@@ -18,6 +18,10 @@ tag Customer
 			<div.details>
 				<input[data:name] type='text'>
 				<div> "Has {orders.len} orders"
+			<div.orders>
+				<h2> "Orders"
+				<ul> for order in orders
+					<li route-to="/orders/{order:id}"> "Order!! {order:id}"
 
 tag Page
 
@@ -27,7 +31,6 @@ tag Customers < Page
 	
 	def load params, next
 		data = await api.rpc('/customers.json')
-		console.log "loaded data",data
 		return 200
 		
 	def filtered
@@ -50,32 +53,27 @@ tag Order
 		<self> "Order"
 
 tag Orders < Page
-	
-	prop query
-	
+
 	def load params, next
 		data = await api.rpc('/orders.json')
 		return 200
-		
-	def navigateTo item
-		let url = params:url + '/' + item:id
-		router.go url
-	
+
 	def render
 		<self>
 			<aside>
 				<ul.entries> for item in data
-					<li.entry.order :tap.navigateTo(item)> <navlink to=item:id> item:id
+					<li.entry.order route.link=item:id>
+						<span.name> item:id
 			<Order.main route=':id' list=data>
 
 export tag App
 	def render
 		<self>
 			<nav.main>
-				<navlink to='/$'> 'Home'
-				<navlink to='/customers'> 'Customers'
-				<navlink to='/orders'> 'Orders'
-				<navlink to='/about'> 'About'
-				
+				<a route-to.exact='/'> 'Home'
+				<a route-to='/customers'> 'Customers'
+				<a route-to='/orders'> 'Orders'
+				<a route-to='/about'> 'About'
+
 			<Customers route='/customers'>
 			<Orders route='/orders'>

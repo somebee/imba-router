@@ -10,13 +10,9 @@ class Router
 	def initialize url
 		@url = url
 		@routes = {}
+		@redirects = {}
+		@aliases = {}
 		@busy = []
-		@redirects = {
-			'/old-guide': '/guides'
-		}
-		@aliases = {
-			'/guides': '/guides/one'
-		}
 		setup
 		self
 		
@@ -82,11 +78,6 @@ const LinkExtend =
 		router.go(href,{})
 		
 	def resolve
-		# if @to and @to[0] != '/' and @route.@parent
-		#	# only if router has changed
-		#	# if @dom:nodeName == 'A'
-		# sets href even if it isnt a link
-		# should only set if changed?
 		setAttribute('href',@route.resolve)
 		flagIf('active',@route.test)
 
@@ -133,7 +124,6 @@ extend tag element
 		let prev = @route
 
 		unless prev
-			# console.log "setRoute",path,mods
 			path = String(path)
 			let par = path[0] != '/' ? getParentRoute : null
 			let opts = mods || {}
@@ -146,6 +136,14 @@ extend tag element
 		elif String(path) != prev.@raw
 			prev.setPath(String(path))
 		self
+		
+	def setRouteTo path, mods
+		if @route
+			setRoute(path)
+		else
+			mods ||= {}
+			mods:link = true
+			setRoute(path,mods)
 
 	# for server
 	def setRouterUrl url
@@ -160,30 +158,6 @@ extend tag element
 				return par.@route
 			par = par.@owner_
 		return null
-		
-	#	def resolveRoute next
-	#		let prev = @params
-	#		let match = @route.test
-	#
-	#		if match
-	#			if match != prev
-	#				params = match
-	#				if self:load
-	#					route.load do |next| self.load(params,next)
-	#
-	#			if !match.@active
-	#				match.@active = true
-	#				attachToParent
-	#
-	#		elif prev.@active
-	#			prev.@active = false
-	#			detachFromParent
-
-	def routeActivated
-		self
-		
-	def routeDeactivated
-		self
 	
 	if $web$
 		def router
@@ -207,28 +181,3 @@ extend tag a
 
 		e.prevent.stop
 		router.go(to,{})
-
-
-tag navlink < a
-	prop to
-	
-	def setTo to
-		if String(to) != @to
-			@to = String(to)
-			@route = Route.new(router,@to,getParentRoute)
-			href = @to.replace('$','')
-			resolveLink
-		self
-
-	def resolveLink
-		if @to and @to[0] != '/' and @route.@parent
-			href = @route.resolve
-		self
-		
-	def refreshRoute
-		resolveLink
-		flagIf('active',@route.test)
-		
-	def end
-		refreshRoute
-

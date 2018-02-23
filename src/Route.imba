@@ -1,5 +1,6 @@
 export class Route
 	prop raw
+	prop params
 	prop status watch: yes
 	
 	def initialize router, str, parent, options
@@ -33,28 +34,34 @@ export class Route
 
 	def test url
 		url ||= @router.url
-		let urlPrefix = ''
+		return @cache:match if url == @cache:url
+
+		let prefix = ''
+		let matcher = @cache:url = url
+		@cache:match = null
+		
 
 		if @parent and @raw[0] != '/'
 			if let m = @parent.test(url)
-				if url.indexOf(m:url) == 0
-					urlPrefix = m:url + '/'
-					url = url.slice(m:url:length + 1)
+				if url.indexOf(m:path) == 0
+					prefix = m:path + '/'
+					matcher = url.slice(m:path:length + 1)
 		
-		if let match = url.match(@regex)
-			let fullUrl = urlPrefix + match[0]
-			# already matched this exactly
-			if fullUrl == @params:url
-				return @params
-			
-			@params = {url: fullUrl}
+		if let match = matcher.match(@regex)
+			let path = prefix + match[0]
+			if path == @params:path
+				@params:url = url
+				return @cache:match = @params
+
+			@params = {path: path, url: url}
 			if @groups:length
 				for item,i in match
 					if let name = @groups[i - 1]
 						@params[name] = item
-			return @params
 
-		return null
+			return @cache:match = @params
+
+		return @cache:match = null
 	
 	# should split up the Route types
 	def statusDidSet status, prev
@@ -104,9 +111,9 @@ export class Route
 		@cache:resolveUrl = url
 		if @parent and @raw[0] != '/'
 			if let m = @parent.test
-				@cache:resolved = m:url + '/' + @raw # .replace('$','')
+				@cache:resolved = m:path + '/' + @raw # .replace('$','')
 		else
-			# what if the url has some unknowns?
+			# FIXME what if the url has some unknowns?
 			@cache:resolved = @raw # .replace(/[\@\$]/g,'')
 
 		return @cache:resolved

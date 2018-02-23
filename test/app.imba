@@ -15,10 +15,19 @@ tag Customer
 
 	def render
 		<self>
+			<h2> data:name
+
 			<div.details>
-				<input[data:name] type='text'>
+				<a route-to='info'> 'Info'
+				<a route-to='orders'> 'Orders'
+
 				<div> "Has {orders.len} orders"
-			<div.orders>
+
+			<div route='info'>	
+				<h2> data:name
+				<input[data:name] type='text'>
+
+			<div route='orders' =>
 				<h2> "Orders"
 				<ul> for order in orders
 					<li route-to="/orders/{order:id}"> "Order!! {order:id}"
@@ -42,7 +51,7 @@ tag Customers < Page
 			<aside>
 				<input[query] type='text'>
 				<ul.entries> for item in filtered
-					<li.entry route.link=item:id>
+					<li.entry route.link=item:id ->
 						<span.name> item:name
 			<Customer.main route=':id' list=data>
 
@@ -71,9 +80,9 @@ export tag App
 		<self>
 			<nav.main>
 				<a route-to.exact='/'> 'Home'
-				<a route-to='/customers'> 'Customers'
-				<a route-to='/orders'> 'Orders'
-				<a route-to='/about'> 'About'
+				<a route-to.sticky='/customers'> 'Customers'
+				<a route-to.sticky='/orders'> 'Orders'
+				<a route-to.sticky='/about'> 'About'
 
 			<Customers route='/customers'>
 			<Orders route='/orders'>

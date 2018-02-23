@@ -50,24 +50,25 @@ class Router
 
 
 const LinkExtend =
-
-	def inject node
+	def inject node, opts
 		let render = node:render
-
-		node:resolveRoute = self:resolve
+		node:resolveRoute = self:resolveRoute
+		node:beforeRender = self:beforeRender
 		node:ontap ||= self:ontap
-
-		if render == Imba.Tag:prototype:render
-			node:render = node:resolveRoute
-		else
-			node:render = do
-				this.resolveRoute
-				render.call(this)
-		self
+		
+	def beforeRender
+		resolveRoute
+		return yes
 	
 	def ontap e
 		var href = @route.resolve
+
 		return unless href
+		
+		if @route.option(:sticky)
+			let prev = @route.params:url
+			if prev and prev.indexOf(href) == 0
+				href = prev
 
 		if e.meta or e.alt or (href[0] != '#' and href[0] != '/')
 			e.@responder = null
@@ -77,7 +78,8 @@ const LinkExtend =
 		e.prevent.stop
 		router.go(href,{})
 		
-	def resolve
+	def resolveRoute
+		let match = @route.test
 		setAttribute('href',@route.resolve)
 		flagIf('active',@route.test)
 
@@ -85,19 +87,18 @@ const LinkExtend =
 const RoutedExtend =
 
 	def inject node
-		let render = node:routedRender = node:render
-		node:resolveRoute = self:resolve
-		node:render = self:render
 		node.@params = {}
+		node:resolveRoute = self:resolveRoute
+		node:beforeRender = self:beforeRender
 		node.detachFromParent
 
-	def render
+	def beforeRender
 		resolveRoute
-		if @params.@active and route.status == 200
-			routedRender
-		self
+		if !@params.@active or @route.status != 200
+			return no
+		return yes
 
-	def resolve next
+	def resolveRoute next
 		let prev = @params
 		let match = @route.test
 
@@ -130,7 +131,7 @@ extend tag element
 			opts:node = self
 			@route = Route.new(router,path,par,opts)
 			if opts:link
-				LinkExtend.inject(self)
+				LinkExtend.inject(self,opts)
 			else
 				RoutedExtend.inject(self)
 		elif String(path) != prev.@raw

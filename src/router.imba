@@ -1,20 +1,5 @@
 import {Route} from './Route'
 
-class Resolver
-	def initialize router
-		@router = router
-		@callback = do |value| resolve(value)
-		@router.resolvers.push(self)
-	
-	def resolve result
-		@resolved = yes
-		@result = result
-		@router.resolvers = @router.resolvers.filter do |item|
-			item != self
-		# @router.resolved(self)
-		# very similar to a queue
-		# route.load do
-	
 class Router
 	@instance = null
 	
@@ -38,7 +23,6 @@ class Router
 	def setup
 		if $web$
 			let url = document:location:pathname
-			console.log "redirect url?",url
 			if url and @redirects[url]
 				history.replaceState({},null,@redirects[url])
 		self
@@ -56,41 +40,114 @@ class Router
 		
 	def match pattern
 		var route = @routes[pattern] ||= Route.new(self,pattern)
-		route.test_
+		route.test
 		
 	def go url
 		url = @redirects[url] or url
 		history.pushState({},null,url)
+		
+	def onReady cb
+		if @busy.len == 0
+			cb(self)
+		else
+			Imba.once(self,'ready',cb)
+
+
+const LinkExtend =
+
+	def inject node
+		let render = node:render
+
+		node:resolveRoute = self:resolve
+		node:ontap ||= self:ontap
+
+		if render == Imba.Tag:prototype:render
+			node:render = node:resolveRoute
+		else
+			node:render = do
+				this.resolveRoute
+				render.call(this)
+		self
+	
+	def ontap e
+		var href = @route.resolve
+		return unless href
+
+		if e.meta or e.alt or (href[0] != '#' and href[0] != '/')
+			e.@responder = null
+			e.prevent.stop
+			return window.open(href,'_blank')
+
+		e.prevent.stop
+		router.go(href,{})
+		
+	def resolve
+		# if @to and @to[0] != '/' and @route.@parent
+		#	# only if router has changed
+		#	# if @dom:nodeName == 'A'
+		# sets href even if it isnt a link
+		# should only set if changed?
+		setAttribute('href',@route.resolve)
+		flagIf('active',@route.test)
+
+
+const RoutedExtend =
+
+	def inject node
+		let render = node:routedRender = node:render
+		node:resolveRoute = self:resolve
+		node:render = self:render
+		node.@params = {}
+		node.detachFromParent
+
+	def render
+		resolveRoute
+		if @params.@active and route.status == 200
+			routedRender
+		self
+
+	def resolve next
+		let prev = @params
+		let match = @route.test
+
+		if match
+			if match != prev
+				params = match
+				if self:load
+					route.load do |next| self.load(params,next)
+
+			if !match.@active
+				match.@active = true
+				attachToParent
+
+		elif prev.@active
+			prev.@active = false
+			detachFromParent
 
 
 extend tag element
 	prop route watch: yes
 	prop params watch: yes
 		
-	def setRoute route, mods
-		# console.log "setRoute",route,mods
-		if route != @route
-			@params = {}
-			if route and (!@route or @route.raw != route)
-				let par = null
-				if route[0] != '/'
-					par = getParentRoute
-				@route = Route.new(router,route,par,self)
-				setupRouting
-		self
-		
-	def setupRouting
-		return if @routedRender
-		let prev = self:render
-		
-		detachFromParent
+	def setRoute path, mods
+		let prev = @route
 
-		@routedRender = self:render = do
-			resolveRoute
-			if prev and @params.@active and route.status == 200
-				prev.call(self)
+		unless prev
+			# console.log "setRoute",path,mods
+			path = String(path)
+			let par = path[0] != '/' ? getParentRoute : null
+			let opts = mods || {}
+			opts:node = self
+			@route = Route.new(router,path,par,opts)
+			if opts:link
+				LinkExtend.inject(self)
+			else
+				RoutedExtend.inject(self)
+		elif String(path) != prev.@raw
+			prev.setPath(String(path))
 		self
-		
+
+	# for server
 	def setRouterUrl url
 		@router ||= Router.new(url)
 		return self
@@ -104,53 +161,28 @@ extend tag element
 			par = par.@owner_
 		return null
 		
-	def resolveRoute next
-		let prev = @params
-		let match = @route.test_
-		
-		# see if url hasnt changed at all?
-		if prev.@next
-			# there is already a function 
-			console.log "already loading"
+	#	def resolveRoute next
+	#		let prev = @params
+	#		let match = @route.test
+	#
+	#		if match
+	#			if match != prev
+	#				params = match
+	#				if self:load
+	#					route.load do |next| self.load(params,next)
+	#
+	#			if !match.@active
+	#				match.@active = true
+	#				attachToParent
+	#
+	#		elif prev.@active
+	#			prev.@active = false
+	#			detachFromParent
 
-		if match
-			if match != prev
-				params = match
-				# let cb = do
-				# 	console.log "finished entering route!"
-				# 	attachToParent
-				# 	trigger(:routed,to: @params,from: prev)
-				# Object.assign({@active: true},match)
-				# unless prev:url
-				# 	beforeRouteEnter(@params,prev,cb)
-				# else
-				# 	beforeRouteUpdate(@params,prev,cb)
-
-			if !match.@active
-				match.@active = true
-				attachToParent
-
-		elif prev.@active
-			prev.@active = false
-			let cb = do
-				detachFromParent
-				console.log "finished leaving route!"
-
-			beforeRouteLeave({},prev,cb)
-		
-	def beforeRouteEnter to, from, next
-		log "beforeRouteEnter"
-		next()
+	def routeActivated
 		self
 		
-	def beforeRouteUpdate to, from, next
-		log "beforeRouteUpdate"
-		next()
-		self
-		
-	def beforeRouteLeave to, from, next
-		log "beforeRouteLeave"
-		next()
+	def routeDeactivated
 		self
 	
 	if $web$
@@ -176,14 +208,15 @@ extend tag a
 		e.prevent.stop
 		router.go(to,{})
 
+
 tag navlink < a
 	prop to
 	
 	def setTo to
-		if to != @to
-			@to = to
+		if String(to) != @to
+			@to = String(to)
 			@route = Route.new(router,@to,getParentRoute)
-			href = to.replace('$','')
+			href = @to.replace('$','')
 			resolveLink
 		self
 
@@ -194,7 +227,7 @@ tag navlink < a
 		
 	def refreshRoute
 		resolveLink
-		flagIf('active',@route.test_)
+		flagIf('active',@route.test)
 		
 	def end
 		refreshRoute

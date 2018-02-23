@@ -1,105 +1,81 @@
 require '../src/router'
+var api = require './api'
 
-tag Home
-	def render
-		<self>
-			<header>
-				<h1> "Home"
-		
-tag About
-	def render
-		<self>
-			"About {title}"
-			<h2> "route param {route:id}"
-
-tag Section
-	# hack to work around imba issue
-	def render
-		self
-
-var guides = [
-	{id: 'basics', title: "Basics"}
-	{id: 'params', title: "Params"}
-	{id: 'nesting', title: "Nesting"}
-]
-
-for item in guides
-	guides[item:id] = item
-
-tag Guide
-	def onrouted e
-		console.log "Guide.onrouted",e.target == self,e.data
-		e.stop
-
-	def paramsDidSet params
-		for item in guides
+tag Customer
+	prop list
+	prop orders
+	
+	def load params, next
+		for item in list
 			if item:id == params:id
 				break data = item
+				
+		orders = await api.rpc("/customers/{params:id}/orders.json")
+		return 200
+
+	def render
+		<self>
+			<div.details>
+				<input[data:name] type='text'>
+				<div> "Has {orders.len} orders"
+
+tag Page
+
+tag Customers < Page
+	
+	prop query
+	
+	def load params, next
+		data = await api.rpc('/customers.json')
+		console.log "loaded data",data
+		return 200
 		
-		route.load do |res|
-			setTimeout(&,100) do
-				log "loaded"
-				res(200)
+	def filtered
+		!query ? data : data.filter do |item|
+			item:name.indexOf(query) >= 0
 	
 	def render
 		<self>
-			<header>
-				<h1> "Welcome to article {params:id}"
-				<navlink to='$'> 'article'
-				<navlink to='resources'> 'resources'
-				<navlink to='share'> 'share'
-			
-			<div route='$'>
-				<h2> "Article here"
-			
-			<div route='resources'>
-				<h2> "Resources here"
-				
-			<div route='share'>
-				<h2> "Sharing here"
+			<aside>
+				<input[query] type='text'>
+				<ul.entries> for item in filtered
+					<li.entry route.link=item:id>
+						<span.name> item:name
+			<Customer.main route=':id' list=data>
 
-tag Guides
+tag Order
+	prop list
+
+	def render
+		<self> "Order"
+
+tag Orders < Page
+	
+	prop query
+	
+	def load params, next
+		data = await api.rpc('/orders.json')
+		return 200
+		
+	def navigateTo item
+		let url = params:url + '/' + item:id
+		router.go url
+	
 	def render
 		<self>
-			<header>
-				<h1> "Guides"
-				for guide in guides
-					<navlink to="{guide:id}"> guide:title
+			<aside>
+				<ul.entries> for item in data
+					<li.entry.order :tap.navigateTo(item)> <navlink to=item:id> item:id
+			<Order.main route=':id' list=data>
 
-				<navlink to='one'> 'one'
-				<navlink to='two'> 'two'
-				<navlink to='three'> 'three'
-			
-			<Guide route=':id'>
-			
-			<div route='one'>
-				<h2> "Guide one"
-			
-			<div route='two'>
-				<h2> "Guide two"
-			
-			<div route='three'>
-				<h2> "Guide three"
-			
 export tag App
 	def render
 		<self>
-			<header>
-				<navlink to='/$'> 'root'
-				<navlink to='/home'> 'home'
-				<navlink to='/about'> 'about'
-				<navlink to='/guides'> 'guides'
-			
-			<About route='/$' title="root">
-			<Home  route='/home'>
-			<About route.exact='/about$'>
-			<About route='/about/:id' title="Other">
-			
-			<Guides route='/guides'>
-			
-			# matching can also be done programatically inline
-			if router.match('/home')
-				<div> "Is home"
+			<nav.main>
+				<navlink to='/$'> 'Home'
+				<navlink to='/customers'> 'Customers'
+				<navlink to='/orders'> 'Orders'
+				<navlink to='/about'> 'About'
 				
-			if let m = router.match('/about/:id')
-				<div> "Is at about {m:id}"
+			<Customers route='/customers'>
+			<Orders route='/orders'>

@@ -1,34 +1,38 @@
 export class Route
 	prop raw
 	prop status watch: yes
-
-	def initialize router, str, parent, node
+	
+	def initialize router, str, parent, options
 		@parent = parent
 		@router = router
-		@node = node
-		@pattern = @raw = str
+		@options = options or {}
+		@node = @options:node
+		@status = 200
+		setPath(str)
+		
+	def option key
+		@options[key]
+		
+	def setPath path
+		@raw = path
 		@groups = []
 		@params = {}
-		@cache  = {}
-		@status = 200
-		
-		# clean up scoped
-		if str[0] == '@'
-			str = str.slice(1)
-		
-		str = str.replace(/\:(\w+|\*)/g) do |m,id|
+		@cache = {}
+		path = path.replace(/\:(\w+|\*)/g) do |m,id|
 			@groups.push(id) unless id == '*'
-			return "([^\/]*)"
+			return "([^\/]+)"
 
-		str = '^' + str
-		@regex = RegExp.new(str)
+		path = '^' + path
+		path = path + '$' if @options:exact and path[path:length - 1] != '$'
+		@regex = RegExp.new(path)
+		self
 
-	def test_ url
+	def test url
 		url ||= @router.url
 		let urlPrefix = ''
 
 		if @parent and @raw[0] != '/'
-			if let m = @parent.test_(url)
+			if let m = @parent.test(url)
 				if url.indexOf(m:url) == 0
 					urlPrefix = m:url + '/'
 					url = url.slice(m:url:length + 1)
@@ -47,7 +51,8 @@ export class Route
 			return @params
 
 		return null
-		
+	
+	# should split up the Route types
 	def statusDidSet status, prev
 		let idx = @router.busy.indexOf(self)
 		clearTimeout(@statusTimeout)
@@ -57,7 +62,10 @@ export class Route
 			@statusTimeout = setTimeout(&,25000) do status = 408
 		elif idx >= 0 and status >= 200
 			@router.busy.splice(idx,1)
-			Imba.commit
+			@node?.render # immediately to be able to kick of nested routes
+			# Imba.commit
+			if @router.busy:length == 0
+				Imba.emit(@router,'ready',[@router])
 
 		@node?.setFlag('route-status',"status-{status}")
 	
@@ -65,10 +73,10 @@ export class Route
 		status = 102
 
 		var handler = @handler = do |res|
-			console.log "value from load.next",res
 			if handler != @handler
 				console.log "another load has started after this"
 				return
+
 			@handler = null
 			status = res isa Number ? res : 200
 
@@ -77,7 +85,9 @@ export class Route
 			
 		if cb and cb:then
 			cb.then(handler,handler)
-			
+		
+		elif cb isa Number
+			handler(cb)
 		# what about a timeout?
 		self
 
@@ -88,18 +98,12 @@ export class Route
 			return @cache:resolved
 		
 		@cache:resolveUrl = url
-			
-		if @parent and @raw[0] == '@'
-			if let m = @parent.test_
-				@cache:resolved = m:url + @raw.slice(1).replace('$','')
-		elif @parent and @raw[0] != '/'
-			if let m = @parent.test_
-				@cache:resolved = m:url + '/' + @raw.replace('$','')
+		if @parent and @raw[0] != '/'
+			if let m = @parent.test
+				@cache:resolved = m:url + '/' + @raw # .replace('$','')
 		else
-			@cache:resolved = @raw.replace(/[\@\$]/g,'')
+			# what if the url has some unknowns?
+			@cache:resolved = @raw # .replace(/[\@\$]/g,'')
 
 		return @cache:resolved
-		
-	def getResponder
-		# register in router.queue
 		

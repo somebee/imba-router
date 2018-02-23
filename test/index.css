@@ -1,15 +1,21 @@
+:root {
+    --nav-bg: #202B31;
+    --nav-color: #73acfe;
+    --nav-active-color: #ffffff;
+}
+
 html,body {
-width: 100%;
-height: 100%;
-margin: 0px;
-font-family: Arial;
+    width: 100%;
+    height: 100%;
+    margin: 0px;
+    font-family: Arial;
 }
 
 body {
     display: flex;
 }
 
-div {
+div.debug {
     border: 1px solid red;
     padding: 2px;
     margin: 2px;
@@ -136,3 +142,90 @@ li.done {
     text-decoration: line-through;
     font-style: italic;
 }
+
+.App {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+}
+
+.Page {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: [aside] 200px [main] auto [inspector] 200px;
+    grid-template-rows: 40px auto 40px;
+    height: 100%;
+}
+
+nav.main {
+    flex: 0 0 auto;
+    background: var(--nav-bg);
+    color: var(--nav-color);
+    padding: 8px;
+}
+
+nav.main a {
+    padding: 4px;
+    color: var(--nav-color);
+    text-decoration: none;
+}
+
+nav.main a.active {
+    color: var(--nav-active-color);
+}
+
+aside {
+    grid-area: 1 / 1 / 4 / 2;
+    background: whitesmoke;
+    overflow: auto;
+}
+
+.main {
+    grid-area: 2 / 2 / 4 / 4;
+}
+
+aside input {
+    width: 100%;
+}
+
+.entries {
+    margin: 0;
+    padding: 0;
+    flex: 1 1 auto;
+    list-style: none inside none;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.entry {
+    padding: 6px 12px;
+    position: relative;
+    cursor: default;
+}
+.entry a {
+    text-decoration: none;
+    cursor: default;
+}
+
+.entry:hover {
+    background: #efefef;
+}
+
+.entry > * {
+    position: relative;
+}
+
+.entry ._navlink {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    height: 100%;
+}
+
+.entry.active {
+    background: #efefef;
+}
+
+

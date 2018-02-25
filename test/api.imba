@@ -339,7 +339,7 @@ export def rpc url
 				order:custid == cid[1]
 
 		if data
-			setTimeout(&,5) do resolve(data)
+			setTimeout(&,300) do resolve(data)
 		else
 			resolve(null)
 			

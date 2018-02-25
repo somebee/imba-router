@@ -1,10 +1,7 @@
 {
   "name": "imba-router",
   "description": "Official router for Imba",
-  "keywords": [
-    "imba",
-    "router"
-  ],
+  "keywords": ["imba","router"],
   "author": "Sindre Aarsaether",
   "license": "MIT",
   "contributors": [
@@ -29,8 +26,8 @@
     "node": ">=4.0.0"
   },
   "directories": {},
-  "main": "./index",
-  "browser": "./imba",
+  "main": "./src/router.imba",
+  "browser": "./src/router.imba",
   "homepage": "http://imba.io",
   "repository": {
     "type": "git",
@@ -38,5 +35,8 @@
   },
   "devDependencies": {
   },
-  "dependencies": {}
+  "dependencies": {},
+  "peerDependencies": {
+    "imba": "1.x"
+  }
 }

@@ -73,7 +73,10 @@ export class Route
 			@statusTimeout = setTimeout(&,25000) do status = 408
 		elif idx >= 0 and status >= 200
 			@router.busy.splice(idx,1)
-			@node?.render # immediately to be able to kick of nested routes
+			
+			# immediately to be able to kick of nested routes
+			# is not commit more natural?
+			@node?.commit
 			# Imba.commit
 			if @router.busy:length == 0
 				Imba.emit(@router,'ready',[@router])
@@ -97,24 +100,26 @@ export class Route
 		if cb and cb:then
 			cb.then(handler,handler)
 		
-		elif cb isa Number
+		elif cb isa Number or cb == true
 			handler(cb)
 		# what about a timeout?
 		self
-
 		
 	def resolve url
 		url ||= @router.url
 		if @cache:resolveUrl == url
 			return @cache:resolved
 		
-		@cache:resolveUrl = url
+		# let base = @router.root or ''
+		let base = ''
+		@cache:resolveUrl = url # base + url
+		
 		if @parent and @raw[0] != '/'
 			if let m = @parent.test
-				@cache:resolved = m:path + '/' + @raw # .replace('$','')
+				@cache:resolved = base + m:path + '/' + @raw # .replace('$','')
 		else
 			# FIXME what if the url has some unknowns?
-			@cache:resolved = @raw # .replace(/[\@\$]/g,'')
+			@cache:resolved = base + @raw # .replace(/[\@\$]/g,'')
 
 		return @cache:resolved
 		

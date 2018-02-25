@@ -5,28 +5,38 @@ class Router
 	
 	prop mode
 	prop busy
+	prop root
 
 	# support redirects
-	def initialize url
+	def initialize url, o = {}
 		@url = url
 		@routes = {}
 		@redirects = {}
 		@aliases = {}
 		@busy = []
+		@root = o:root or ''
 		setup
 		self
 		
 	def setup
 		if $web$
 			let url = document:location:pathname
+			# temporary hack to support scrimba out-of-the-box
+			if !@root and window.SCRIMBA_ROOT
+				@root = window.SCRIMBA_ROOT.replace(/\/$/,'')
+
 			if url and @redirects[url]
 				history.replaceState({},null,@redirects[url])
 		self
 	
 	def url
 		let url = @url || ($web$ ? document:location:pathname : '')
+		if @root and url.indexOf(@root) == 0
+			url = url.slice(@root:length)
+
 		url = @redirects[url] or url
-		@aliases[url] or url
+		url = @aliases[url] or url
+		
 		
 	def self.instance
 		@instance ||= self.new
@@ -40,7 +50,10 @@ class Router
 		
 	def go url
 		url = @redirects[url] or url
-		history.pushState({},null,url)
+		history.pushState({},null,normalize(root + url))
+		
+	def normalize url
+		url
 		
 	def onReady cb
 		if @busy.len == 0
@@ -70,17 +83,23 @@ const LinkExtend =
 			if prev and prev.indexOf(href) == 0
 				href = prev
 
-		if e.meta or e.alt or (href[0] != '#' and href[0] != '/')
+		if (href[0] != '#' and href[0] != '/')
 			e.@responder = null
 			e.prevent.stop
+			# need to respect target
 			return window.open(href,'_blank')
+			
+		if e.meta or e.alt
+			e.@responder = null
+			e.prevent.stop
+			return window.open(router.root + href,'_blank')
 
 		e.prevent.stop
 		router.go(href,{})
 		
 	def resolveRoute
 		let match = @route.test
-		setAttribute('href',@route.resolve)
+		setAttribute('href',router.root + @route.resolve)
 		flagIf('active',@route.test)
 
 
@@ -94,9 +113,18 @@ const RoutedExtend =
 
 	def beforeRender
 		resolveRoute
-		if !@params.@active or @route.status != 200
+		return no if !@params.@active
+
+		let status = @route.status
+		
+		if self["render{status}"]
+			self["render{status}"]()
 			return no
-		return yes
+			
+		if status >= 200
+			return yes
+
+		return no
 
 	def resolveRoute next
 		let prev = @params
@@ -150,6 +178,10 @@ extend tag element
 	def setRouterUrl url
 		@router ||= Router.new(url)
 		return self
+		
+	def setRouterRoot url
+		router.root = url
+		return self
 	
 	def getParentRoute
 		var route = null
@@ -168,17 +200,18 @@ extend tag element
 		def router
 			@router or (@owner_ ? @owner_.router : (@router ||= Router.new))
 
-extend tag a
-	
-	def onclick e
-		var to = href
-		
-		unless to
-			return
-
-		if e.meta or e.alt or (to[0] != '#' and to[0] != '/')
-			e.@responder = null
-			return e.silence.stop
-
-		e.prevent.stop
-		router.go(to,{})
+# dont extend a specifically?
+# extend tag a
+# 	
+# 	def onclick e
+# 		var to = href
+# 		
+# 		unless to
+# 			return
+# 
+# 		if e.meta or e.alt or (to[0] != '#' and to[0] != '/')
+# 			e.@responder = null
+# 			return e.silence.stop
+# 
+# 		e.prevent.stop
+# 		router.go(to,{})

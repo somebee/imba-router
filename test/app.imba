@@ -1,4 +1,4 @@
-require '../src/router'
+require '../src/index'
 var api = require './api'
 
 tag Customer
@@ -6,14 +6,28 @@ tag Customer
 	prop orders
 	
 	def load params, next
+		data = null
+		# renderLoading
+
 		for item in list
 			if item:id == params:id
 				break data = item
-				
+		
 		orders = await api.rpc("/customers/{params:id}/orders.json")
+		
+		unless data
+			console.log "could not find!!!"
+			return 404
 		return 200
+		
+	def renderLoading
+		<self> "Loading!"
 
 	def render
+		console.log "Customer#render"
+		unless data
+			return <self> "Loading!"
+
 		<self>
 			<h2> data:name
 
@@ -50,9 +64,13 @@ tag Customers < Page
 		<self>
 			<aside>
 				<input[query] type='text'>
-				<ul.entries> for item in filtered
-					<li.entry route.link=item:id ->
-						<span.name> item:name
+				<ul.entries>
+					for item in filtered
+						<li.entry route-to.sticky=item:id ->
+							<span.name> item:name
+					<li.entry route-to="14" ->
+						<span.name> "Unknown"
+
 			<Customer.main route=':id' list=data>
 
 tag Order

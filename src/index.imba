@@ -1,5 +1,9 @@
 import {Route} from './Route'
 
+# check if is web
+
+var isWeb = typeof window !== 'undefined'
+
 class Router
 	@instance = null
 	
@@ -19,7 +23,7 @@ class Router
 		self
 		
 	def setup
-		if $web$
+		if isWeb
 			let url = document:location:pathname
 			# temporary hack to support scrimba out-of-the-box
 			if !@root and window.SCRIMBA_ROOT
@@ -30,7 +34,7 @@ class Router
 		self
 	
 	def url
-		let url = @url || ($web$ ? document:location:pathname : '')
+		let url = @url || (isWeb ? document:location:pathname : '')
 		if @root and url.indexOf(@root) == 0
 			url = url.slice(@root:length)
 
@@ -191,27 +195,6 @@ extend tag element
 				return par.@route
 			par = par.@owner_
 		return null
-	
-	if $web$
-		def router
-			Router.instance
-	
-	if $node$
-		def router
-			@router or (@owner_ ? @owner_.router : (@router ||= Router.new))
 
-# dont extend a specifically?
-# extend tag a
-# 	
-# 	def onclick e
-# 		var to = href
-# 		
-# 		unless to
-# 			return
-# 
-# 		if e.meta or e.alt or (to[0] != '#' and to[0] != '/')
-# 			e.@responder = null
-# 			return e.silence.stop
-# 
-# 		e.prevent.stop
-# 		router.go(to,{})
+	def router
+		isWeb ? Router.instance : (@router or (@owner_ ? @owner_.router : (@router ||= Router.new)))

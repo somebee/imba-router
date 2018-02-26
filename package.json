@@ -12,7 +12,8 @@
     }
   ],
   "scripts": {
-    "test": "bin/imba test/index.imba"
+    "test": "bin/imba test/index.imba",
+    "watch": "imbac -w -o lib src"
   },
   "bugs": "https://github.com/somebee/imba-router/issues",
   "version": "0.1.0",
@@ -26,8 +27,8 @@
     "node": ">=4.0.0"
   },
   "directories": {},
-  "main": "./src/router.imba",
-  "browser": "./src/router.imba",
+  "main": "./lib/index",
+  "browser": "./lib/index",
   "homepage": "http://imba.io",
   "repository": {
     "type": "git",

@@ -14,6 +14,7 @@ class Router
 	# support redirects
 	def initialize url, o = {}
 		@url = url
+		@hash = ''
 		@routes = {}
 		@redirects = {}
 		@aliases = {}
@@ -31,16 +32,31 @@ class Router
 
 			if url and @redirects[url]
 				history.replaceState({},null,@redirects[url])
+				
+			@hash = document:location:hash
+			
+			window.addEventListener('hashchange') do |e|
+				# console.log "router hashchange",e
+				emit('hashchange',@hash = document:location:hash)
 		self
 	
-	def url
+	def path
 		let url = @url || (isWeb ? document:location:pathname : '')
 		if @root and url.indexOf(@root) == 0
 			url = url.slice(@root:length)
 
 		url = @redirects[url] or url
 		url = @aliases[url] or url
+		return url
 		
+	def url
+		var url = self.path
+		if isWeb
+			url += document:location:hash
+		return url		
+		
+	def hash
+		@hash # || (isWeb ? document:location:hash : '')
 		
 	def self.instance
 		@instance ||= self.new
@@ -52,19 +68,33 @@ class Router
 		var route = @routes[pattern] ||= Route.new(self,pattern)
 		route.test
 		
-	def go url
+	def go url, state = {}
 		url = @redirects[url] or url
-		history.pushState({},null,normalize(root + url))
+		history.pushState(state,null,normalize(root + url))
+		# now commit and schedule events afterwards
+		Imba.commit
+		
+		isWeb and onReady do
+			let hash = document:location:hash
+			if hash != @hash
+				emit('hashchange',@hash = hash)
+		self
+		
+	def replace url, state = {}
+		url = @redirects[url] or url
+		history.replaceState(state,null,normalize(root + url))
 		
 	def normalize url
 		url
 		
 	def onReady cb
-		if @busy.len == 0
-			cb(self)
-		else
-			Imba.once(self,'ready',cb)
-
+		Imba.ticker.add do
+			@busy.len == 0 ? cb(self) : Imba.once(self,'ready',cb)
+			
+	def emit name, *params do Imba.emit(self,name,params)
+	def on name, *params do Imba.listen(self,name,*params)
+	def once name, *params do Imba.once(self,name,*params)
+	def un name, *params do Imba.unlisten(self,name,*params)
 
 const LinkExtend =
 	def inject node, opts
@@ -138,10 +168,11 @@ const RoutedExtend =
 			if match != prev
 				params = match
 				if self:load
-					route.load do |next| self.load(params,next)
+					route.load do self.load(params)
 
 			if !match.@active
 				match.@active = true
+				# should happen after load?
 				attachToParent
 
 		elif prev.@active

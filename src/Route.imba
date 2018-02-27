@@ -1,3 +1,5 @@
+var isWeb = typeof window !== 'undefined'
+
 export class Route
 	prop raw
 	prop params
@@ -19,27 +21,30 @@ export class Route
 		@groups = []
 		@params = {}
 		@cache = {}
-		path = path.replace(/\:(\w+|\*)/g) do |m,id|
+		path = path.replace(/\:(\w+|\*)(\.)?/g) do |m,id,dot|
+			# what about :id.:format?
 			@groups.push(id) unless id == '*'
-			return "([^\/]+)"
+			if dot
+				return "([^\/\#\.\?]+)\."
+			else
+				return "([^\/\#\?]+)"
 
 		path = '^' + path
 		if @options:exact and path[path:length - 1] != '$'
-			path = path + '$'
+			path = path + '(?=[\#\?]|$)'
 		else
 			# we only want to match end OR /
-			path = path + '(?=\/|$)'
+			path = path + '(?=[\/\#\?]|$)'
 		@regex = RegExp.new(path)
 		self
 
 	def test url
-		url ||= @router.url
+		url ||= @router.url # should include hash?
 		return @cache:match if url == @cache:url
 
 		let prefix = ''
 		let matcher = @cache:url = url
 		@cache:match = null
-		
 
 		if @parent and @raw[0] != '/'
 			if let m = @parent.test(url)

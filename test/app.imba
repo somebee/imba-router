@@ -1,4 +1,4 @@
-require '../src/index'
+require '../lib/index'
 var api = require './api'
 
 tag Customer
@@ -52,7 +52,7 @@ tag Customers < Page
 	
 	prop query
 	
-	def load params, next
+	def load params
 		data = await api.rpc('/customers.json')
 		return 200
 		

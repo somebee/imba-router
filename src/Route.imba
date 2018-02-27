@@ -104,10 +104,8 @@ export class Route
 			
 		if cb and cb:then
 			cb.then(handler,handler)
-		
-		elif cb isa Number or cb == true
+		else
 			handler(cb)
-		# what about a timeout?
 		self
 		
 	def resolve url

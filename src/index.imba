@@ -4,59 +4,71 @@ import {Route} from './Route'
 
 var isWeb = typeof window !== 'undefined'
 
-class Router
+export class Router
 	@instance = null
 	
-	prop mode
+	prop mode watch: yes, chainable: yes
 	prop busy
 	prop root
 
 	# support redirects
-	def initialize url, o = {}
-		@url = url
+	def initialize o = {}
+		@url = o:url or ''
 		@hash = ''
 		@routes = {}
-		@redirects = {}
-		@aliases = {}
+		@options = o
+		@redirects = o:redirects || {}
+		@aliases = o:aliases || {}
 		@busy = []
 		@root = o:root or ''
+		mode = o:mode or 'history'
 		setup
 		self
 		
+	def option key, value
+		if value == undefined
+			return @options[key]
+		else
+			@options[key] = value
+		return self
+		
+	def location
+		document:location
+		
 	def setup
 		if isWeb
-			let url = document:location:pathname
+			# let url = location:pathname
 			# temporary hack to support scrimba out-of-the-box
-			if !@root and window.SCRIMBA_ROOT
+			if !@root and window.SCRIMBA_ROOT and mode != 'hash'
 				@root = window.SCRIMBA_ROOT.replace(/\/$/,'')
 
-			if url and @redirects[url]
-				history.replaceState({},null,@redirects[url])
+			let url = self.path
+			# if url and @redirects[url]
+			history.replaceState({},null,normalize(url))
 				
-			@hash = document:location:hash
-			
+			@hash = location:hash
 			window.addEventListener('hashchange') do |e|
-				# console.log "router hashchange",e
-				emit('hashchange',@hash = document:location:hash)
+				emit('hashchange',@hash = location:hash)
+				Imba.commit
 		self
 	
 	def path
-		let url = @url || (isWeb ? document:location:pathname : '')
+		let url = @url || (isWeb ? (mode == 'hash' ? (hash or '').slice(1) : location:pathname) : '')
 		if @root and url.indexOf(@root) == 0
 			url = url.slice(@root:length)
-
+		url = '/' if url == ''
 		url = @redirects[url] or url
 		url = @aliases[url] or url
 		return url
 		
 	def url
 		var url = self.path
-		if isWeb
-			url += document:location:hash
-		return url		
+		if isWeb and mode != 'hash'
+			url += location:hash
+		return url
 		
 	def hash
-		@hash # || (isWeb ? document:location:hash : '')
+		(isWeb ? location:hash : '')
 		
 	def self.instance
 		@instance ||= self.new
@@ -69,23 +81,29 @@ class Router
 		route.test
 		
 	def go url, state = {}
+		# remove hash if we are hash-based and url includes hash
 		url = @redirects[url] or url
-		history.pushState(state,null,normalize(root + url))
+		
+		history.pushState(state,null,normalize(url))
 		# now commit and schedule events afterwards
 		Imba.commit
 		
 		isWeb and onReady do
-			let hash = document:location:hash
+			let hash = location:hash
 			if hash != @hash
 				emit('hashchange',@hash = hash)
 		self
 		
 	def replace url, state = {}
 		url = @redirects[url] or url
-		history.replaceState(state,null,normalize(root + url))
+		history.replaceState(state,null,normalize(url))
 		
 	def normalize url
-		url
+		if mode == 'hash'
+			url = "#{url}"
+		elif root
+			url = root + url
+		return url
 		
 	def onReady cb
 		Imba.ticker.add do
@@ -169,6 +187,7 @@ const RoutedExtend =
 				params = match
 				if self:load
 					route.load do self.load(params)
+			# call method every time if the actual url has changed - even if match is the same?
 
 			if !match.@active
 				match.@active = true
@@ -226,6 +245,16 @@ extend tag element
 				return par.@route
 			par = par.@owner_
 		return null
+		
+	def setRouter router
+		@router = router
+		return self
 
 	def router
-		isWeb ? Router.instance : (@router or (@owner_ ? @owner_.router : (@router ||= Router.new)))
+		@router ||= (@owner_ and @owner_.router or Router.new)
+		# isWeb ? Router.instance : (@router or (@owner_ ? @owner_.router : (@router ||= Router.new)))
+		
+	def routerSetAttribute key, value
+		# console.log "routerAttribute",key,value
+		router.option(key,value)
+		return self

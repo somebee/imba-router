@@ -1,7 +1,10 @@
 {
   "name": "imba-router",
   "description": "Official router for Imba",
-  "keywords": ["imba","router"],
+  "keywords": [
+    "imba",
+    "router"
+  ],
   "author": "Sindre Aarsaether",
   "license": "MIT",
   "contributors": [
@@ -16,7 +19,7 @@
     "watch": "imbac -w -o lib src"
   },
   "bugs": "https://github.com/somebee/imba-router/issues",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "licenses": [
     {
       "type": "MIT",
@@ -34,8 +37,7 @@
     "type": "git",
     "url": "git://github.com/somebee/imba-router.git"
   },
-  "devDependencies": {
-  },
+  "devDependencies": {},
   "dependencies": {},
   "peerDependencies": {
     "imba": "1.x"

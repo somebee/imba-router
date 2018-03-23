@@ -1,4 +1,5 @@
 import {App} from './app'
+import {Router} from 'imba-router'
 
 const express = require('express')
 const app = express()
@@ -10,7 +11,8 @@ app.get(/.*/) do |req,res|
 	
 	# need to supply the url of the request
 	# by setting router-url on the root element
-	var node = <html router-url=path>
+	var router = Router.new(url: path)
+	var node = <html router=router>
 		<head>
 			# blank favicon
 			<link href="data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAYAAABPYyMiAAAABmJLR0T///////8JWPfcAAAACXBIWXMAAABIAAAASABGyWs+AAAAF0lEQVRIx2NgGAWjYBSMglEwCkbBSAcACBAAAeaR9cIAAAAASUVORK5CYII=" rel="icon" type="image/x-icon">

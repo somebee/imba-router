@@ -200,8 +200,10 @@ const RoutedExtend =
 
 
 extend tag element
-	prop route watch: yes
 	prop params watch: yes
+
+	def route
+		@route
 		
 	def setRoute path, mods
 		let prev = @route
@@ -253,8 +255,3 @@ extend tag element
 	def router
 		@router ||= (@owner_ and @owner_.router or Router.new)
 		# isWeb ? Router.instance : (@router or (@owner_ ? @owner_.router : (@router ||= Router.new)))
-		
-	def routerSetAttribute key, value
-		# console.log "routerAttribute",key,value
-		router.option(key,value)
-		return self

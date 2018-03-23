@@ -37,9 +37,10 @@
     "type": "git",
     "url": "git://github.com/somebee/imba-router.git"
   },
-  "devDependencies": {},
-  "dependencies": {},
-  "peerDependencies": {
+  "devDependencies": {
+    "express": "^4.16.3"
+  },
+  "dependencies": {
     "imba": "1.x"
   }
 }

@@ -1,6 +1,13 @@
+
+import {Router} from '../src'
 import {App} from './app'
 
-# the server has already rendered our app
-# but we want to replace it with our own version on client
-document:body:innerHTML = ''
-Imba.mount <App>
+var router = Router.new()
+var app = <App router=router>
+
+# to make sure page does not flash to white
+# we wait until the router has finished loading
+# until we replace the document with our mounted app
+router.onReady do 
+	document:body:innerHTML = ''
+	Imba.mount app

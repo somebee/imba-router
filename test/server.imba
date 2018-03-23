@@ -1,5 +1,5 @@
 import {App} from './app'
-import {Router} from 'imba-router'
+import {Router} from '../src'
 
 const express = require('express')
 const app = express()
@@ -8,9 +8,7 @@ app.use(express.static('./'))
 
 app.get(/.*/) do |req,res|
 	var path = req:path
-	
-	# need to supply the url of the request
-	# by setting router-url on the root element
+
 	var router = Router.new(url: path)
 	var node = <html router=router>
 		<head>

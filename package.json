@@ -19,7 +19,7 @@
     "watch": "imbac -w -o lib src"
   },
   "bugs": "https://github.com/somebee/imba-router/issues",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "licenses": [
     {
       "type": "MIT",

@@ -4,12 +4,38 @@ import {Route} from './Route'
 
 var isWeb = typeof window !== 'undefined'
 
+# proxy for hash
+class Hash
+
+class Request
+	prop router
+	prop path
+	prop referrer
+
+	def initialize router, path, referrer
+		@router = router
+		@path = @originalPath = path
+		@referrer = referrer
+
+	def redirect path
+		console.log "Request.redirect!",path
+		@redirected = @path = path
+		self
+
+	def abort
+		@aborted = yes
+		self
+
+
 export class Router
 	@instance = null
 	
 	prop mode watch: yes, chainable: yes
 	prop busy
 	prop root
+
+	def self.instance
+		@instance ||= self.new
 
 	# support redirects
 	def initialize o = {}
@@ -23,6 +49,12 @@ export class Router
 		@root = o:root or ''
 		mode = o:mode or 'history'
 		setup
+
+		if isWeb
+			# warn if multiple instances?
+			@instance ||= self
+			@clickHandler = do |e| onclick(e)
+			@captor = window.addEventListener('click',@clickHandler,yes)
 		self
 		
 	def option key, value
@@ -34,7 +66,41 @@ export class Router
 		
 	def location
 		document:location
-		
+
+	def refresh params = {}
+		return if @refreshing
+		@refreshing = yes
+		let path = self.path
+
+		if path != @path
+			console.log "refreshing url",path,@path
+
+			# params:path = path
+			# params:referrer = @path
+
+			let req = Request.new(self,path,@path)
+
+			let state = {
+				path: path
+				referrer: @path
+			}
+
+			emit('beforechange',req)
+			@path = path
+			emit('change',req)
+			console.log "after change",req
+			Imba.commit
+
+			# checking hash?
+			# let e = Imba.Event.wrap(type: 'change')
+
+		@refreshing = no
+		self
+	
+	def onpopstate e
+		refresh(pop: yes)
+		self
+
 	def setup
 		if isWeb
 			# let url = location:pathname
@@ -42,9 +108,10 @@ export class Router
 			if !@root and window.SCRIMBA_ROOT and mode != 'hash'
 				@root = window.SCRIMBA_ROOT.replace(/\/$/,'')
 
-			let url = self.path
+			let url = self.url
 			# if url and @redirects[url]
 			history.replaceState({},null,normalize(url))
+			window:onpopstate = do |e| onpopstate(e)
 				
 			@hash = location:hash
 			window.addEventListener('hashchange') do |e|
@@ -69,9 +136,11 @@ export class Router
 		
 	def hash
 		(isWeb ? location:hash : '')
-		
-	def self.instance
-		@instance ||= self.new
+
+	def setHash value
+		if isWeb
+			location:hash = value
+		return self
 		
 	def history
 		window:history
@@ -81,13 +150,13 @@ export class Router
 		route.test
 		
 	def go url, state = {}
+		console.log "go url!!",url
 		# remove hash if we are hash-based and url includes hash
 		url = @redirects[url] or url
 		
 		history.pushState(state,null,normalize(url))
-		# now commit and schedule events afterwards
-		Imba.commit
-		
+		refresh
+
 		isWeb and onReady do
 			let hash = location:hash
 			if hash != @hash
@@ -114,31 +183,63 @@ export class Router
 	def once name, *params do Imba.once(self,name,*params)
 	def un name, *params do Imba.unlisten(self,name,*params)
 
+	def onclick e
+		let i = 0
+		# let path = e:path
+		let el = e:target
+		let href
+
+		while el and el:getAttribute # = e:path[i++]
+			break if href = el.getAttribute('href')
+			el = el:parentNode
+
+		if !el or !href or (href[0] != '#' and href[0] != '/')
+			return
+
+		# deal with alternative routes
+		if el.@tag
+			if el.@tag:resolveRoute
+				el.@tag.resolveRoute
+				href = el.getAttribute('href')
+
+			console.log href,el
+
+			if el:nodeName != 'A' and (e:metaKey or e:altKey)
+				e.preventDefault
+				e.stopPropagation
+				window.open(href,'_blank')
+
+			# what if we have no tag for this?
+			# trigger anyhow?
+			let ev = el.@tag.trigger('taproute',path: href, sourceEvent: e, router: self) # include metaKey etc
+			unless ev.isPrevented
+				e.preventDefault
+				e.stopPropagation
+				console.log 'go now!!',href
+				(e:metaKey or e:altKey) ? window.open(href,'_blank') : go(href,{})
+		else
+			console.log "skip router",el
+		self
+
 const LinkExtend =
 	def inject node, opts
 		let render = node:render
 		node:resolveRoute = self:resolveRoute
 		node:beforeRender = self:beforeRender
-		node:ontap ||= self:ontap
+		# node:ontap ||= self:ontap
 		
 	def beforeRender
 		resolveRoute
 		return yes
 	
 	def ontap e
-		var href = @route.resolve
-
+		resolveRoute
+		var href = self:href ? self.href : dom:href
 		return unless href
-		
-		if @route.option(:sticky)
-			let prev = @route.params:url
-			if prev and prev.indexOf(href) == 0
-				href = prev
 
 		if (href[0] != '#' and href[0] != '/')
 			e.@responder = null
 			e.prevent.stop
-			# need to respect target
 			return window.open(href,'_blank')
 			
 		if e.meta or e.alt
@@ -146,14 +247,26 @@ const LinkExtend =
 			e.prevent.stop
 			return window.open(router.root + href,'_blank')
 
-		e.prevent.stop
-		router.go(href,{})
+		var ev = trigger('taproute',path: href)
+
+		unless ev.isPrevented
+			e.prevent.stop
+			router.go(href,{})
 		
 	def resolveRoute
-		let match = @route.test
-		setAttribute('href',router.root + @route.resolve)
-		flagIf('active',@route.test)
+		return self unless @route
 
+		let match = @route.test
+		let href =  @route.resolve
+
+		if @route and @route.option(:sticky)
+			let prev = @route.params:url
+			if prev and prev.indexOf(href) == 0
+				href = prev
+
+		setAttribute('href',router.root + href)
+		flagIf('active',match)
+		return self
 
 const RoutedExtend =
 
@@ -161,18 +274,24 @@ const RoutedExtend =
 		node.@params = {}
 		node:resolveRoute = self:resolveRoute
 		node:beforeRender = self:beforeRender
+		node:renderWithStatusCode = self:renderWithStatusCode
 		node.detachFromParent
+
+	def renderWithStatusCode code = @route.status
+		if self["render{code}"]
+			self["render{code}"]()
+			return yes
+		return no
 
 	def beforeRender
 		resolveRoute
 		return no if !@params.@active
 
 		let status = @route.status
-		
-		if self["render{status}"]
-			self["render{status}"]()
+
+		if renderWithStatusCode(status)
 			return no
-			
+
 		if status >= 200
 			return yes
 
@@ -183,20 +302,25 @@ const RoutedExtend =
 		let match = @route.test
 
 		if match
+			let active = match.@active
+			match.@active = true
+
 			if match != prev
 				params = match
-				if self:load
-					route.load do self.load(params)
-			# call method every time if the actual url has changed - even if match is the same?
 
-			if !match.@active
-				match.@active = true
+			if match != prev or !active
+				routeDidMatch(match,prev)
+
+			if !active
+				# match.@active = true
 				# should happen after load?
 				attachToParent
+				Imba.commit
 
-		elif prev.@active
+		elif prev and prev.@active
 			prev.@active = false
 			detachFromParent
+			Imba.commit
 
 
 extend tag element
@@ -255,3 +379,35 @@ extend tag element
 	def router
 		@router ||= (@owner_ and @owner_.router or Router.new)
 		# isWeb ? Router.instance : (@router or (@owner_ ? @owner_.router : (@router ||= Router.new)))
+
+	def routeDidLoad params
+		log 'routeDidLoad'
+		self
+
+	def routeDidFail error
+		self
+
+	def routeDidMatch params, prev
+		unless self:load
+			routeDidLoad(params,prev)
+			return self
+
+		route.load do
+			let val
+			try
+				if params == prev and self:reload
+					val = await self.reload(params,prev)
+				else
+					val = await self.load(params,prev)
+			catch e
+				log "route error",e
+				val = 400
+				routeDidFail(e)
+			routeDidLoad(val)
+			return val
+
+		return self
+
+
+	def ontaproute
+		self

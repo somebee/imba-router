@@ -25,6 +25,12 @@ class Request
 	def abort
 		@aborted = yes
 		self
+		
+	def url
+		path
+		
+	def match str
+		Route.new(self,str).test
 
 
 export class Router
@@ -84,8 +90,13 @@ export class Router
 				path: path
 				referrer: @path
 			}
-
+			
 			emit('beforechange',req)
+			if req.path != path
+				console.log "redirected"
+				replace(path = req.path)
+				# what if we cancel?
+
 			@path = path
 			emit('change',req)
 			console.log "after change",req
@@ -150,10 +161,9 @@ export class Router
 		route.test
 		
 	def go url, state = {}
-		console.log "go url!!",url
 		# remove hash if we are hash-based and url includes hash
 		url = @redirects[url] or url
-		
+		# call from here instead?
 		history.pushState(state,null,normalize(url))
 		refresh
 
@@ -166,6 +176,7 @@ export class Router
 	def replace url, state = {}
 		url = @redirects[url] or url
 		history.replaceState(state,null,normalize(url))
+		refresh
 		
 	def normalize url
 		if mode == 'hash'
@@ -202,8 +213,6 @@ export class Router
 				el.@tag.resolveRoute
 				href = el.getAttribute('href')
 
-			console.log href,el
-
 			if el:nodeName != 'A' and (e:metaKey or e:altKey)
 				e.preventDefault
 				e.stopPropagation
@@ -215,10 +224,7 @@ export class Router
 			unless ev.isPrevented
 				e.preventDefault
 				e.stopPropagation
-				console.log 'go now!!',href
 				(e:metaKey or e:altKey) ? window.open(href,'_blank') : go(href,{})
-		else
-			console.log "skip router",el
 		self
 
 const LinkExtend =

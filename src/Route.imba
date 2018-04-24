@@ -17,6 +17,7 @@ export class Route
 		@options[key]
 		
 	def setPath path
+		return self if @raw == path
 		@raw = path
 		@groups = []
 		@params = {}

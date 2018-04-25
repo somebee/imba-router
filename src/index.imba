@@ -1,3 +1,5 @@
+extern encodeURI
+
 import {Route} from './Route'
 
 # check if is web
@@ -148,9 +150,19 @@ export class Router
 	def hash
 		(isWeb ? location:hash : '')
 
+	def serializeParams params
+		if params isa Object
+			var value = for own key,val of params
+					[key,encodeURI(val)].join("=")
+			return value.join("&")
+		return params or ''
+
 	def setHash value
 		if isWeb
-			location:hash = value
+			console.log "set hash",serializeParams(value)
+			# will set without jumping
+			history.replaceState({},null,'#' + serializeParams(value)) # last state?
+			# location:hash = serializeParams(value)
 		return self
 		
 	def history

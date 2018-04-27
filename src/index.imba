@@ -62,7 +62,7 @@ export class Router
 			# warn if multiple instances?
 			@instance ||= self
 			@clickHandler = do |e| onclick(e)
-			@captor = window.addEventListener('click',@clickHandler,yes)
+			@captor = document.addEventListener('click',@clickHandler,yes)
 		self
 		
 	def option key, value
@@ -81,7 +81,7 @@ export class Router
 		let path = self.path
 
 		if path != @path
-			console.log "refreshing url",path,@path
+			# console.log "refreshing url",path,@path
 
 			# params:path = path
 			# params:referrer = @path
@@ -95,13 +95,13 @@ export class Router
 			
 			emit('beforechange',req)
 			if req.path != path
-				console.log "redirected"
+				# console.log "redirected"
 				replace(path = req.path)
 				# what if we cancel?
 
 			@path = path
 			emit('change',req)
-			console.log "after change",req
+			# console.log "after change",req
 			Imba.commit
 
 			# checking hash?
@@ -207,10 +207,14 @@ export class Router
 	def un name, *params do Imba.unlisten(self,name,*params)
 
 	def onclick e
+		# console.log "onclick",e, e:defaultPrevented
+
 		let i = 0
 		# let path = e:path
 		let el = e:target
 		let href
+		
+		return if e:defaultPrevented
 
 		while el and el:getAttribute # = e:path[i++]
 			break if href = el.getAttribute('href')

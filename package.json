@@ -40,7 +40,7 @@
   "devDependencies": {
     "express": "^4.16.3"
   },
-  "dependencies": {
+  "peerDependencies": {
     "imba": "1.x"
   }
 }

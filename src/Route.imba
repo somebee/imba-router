@@ -94,7 +94,7 @@ export class Route
 
 		var handler = @handler = do |res|
 			if handler != @handler
-				console.log "another load has started after this"
+				# console.log "another load has started after this"
 				return
 
 			@handler = null

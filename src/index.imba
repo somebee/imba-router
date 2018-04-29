@@ -21,7 +21,6 @@ class Request
 		@referrer = referrer
 
 	def redirect path
-		console.log "Request.redirect!",path
 		@redirected = @path = path
 		self
 
@@ -83,8 +82,6 @@ export class Router
 		return if @refreshing
 		@refreshing = yes
 		let path = params:path or self.path
-
-		console.log "route.refresh",path,@path
 
 		if path != @path
 
@@ -451,7 +448,7 @@ extend tag element
 				else
 					val = await self.load(params,prev)
 			catch e
-				log "route error",e
+				# log "route error",e
 				val = 400
 				routeDidFail(e)
 			routeDidLoad(val)

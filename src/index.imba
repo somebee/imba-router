@@ -13,6 +13,7 @@ class Request
 	prop router
 	prop path
 	prop referrer
+	prop aborted
 
 	def initialize router, path, referrer
 		@router = router
@@ -75,34 +76,51 @@ export class Router
 	def location
 		document:location
 
+	def state
+		{}
+
 	def refresh params = {}
 		return if @refreshing
 		@refreshing = yes
-		let path = self.path
+		let path = params:path or self.path
+
+		console.log "route.refresh",path,@path
 
 		if path != @path
-			# console.log "refreshing url",path,@path
-
-			# params:path = path
-			# params:referrer = @path
 
 			let req = Request.new(self,path,@path)
-
-			let state = {
-				path: path
-				referrer: @path
-			}
 			
 			emit('beforechange',req)
-			if req.path != path
-				# console.log "redirected"
-				replace(path = req.path)
-				# what if we cancel?
 
-			@path = path
-			emit('change',req)
-			# console.log "after change",req
-			Imba.commit
+			if req.aborted
+				# console.log "request was aborted",params
+				var res = window.confirm("Are you sure you want to leave? You might have unsaved changes")
+
+				if res
+					req.aborted = no
+
+				# if we don't confirm, push the previous state again
+				elif params:pop
+					path = @path
+					history.pushState(state,null,normalize(@path))
+				elif !params:push
+					history.replaceState(state,null,normalize(@path))
+
+				# if we're not popping - should happen before we are changing
+
+			unless req.aborted
+				@path = req.path
+
+				if params:push
+					# console.log "actually changing url"
+					history.pushState(params:state or state,null,normalize(req.path))
+				else
+					if path != req.path
+						replace(path = req.path)
+					self
+
+				emit('change',req)
+				Imba.commit
 
 			# checking hash?
 			# let e = Imba.Event.wrap(type: 'change')
@@ -111,8 +129,18 @@ export class Router
 		self
 	
 	def onpopstate e
+		# console.log "onpopstate",e
 		refresh(pop: yes)
 		self
+
+	def onbeforeunload e
+		# console.log "onbeforeunload"
+		let req = Request.new(self,null,self.path)
+		emit('beforechange',req)
+		return true if req.aborted
+		return
+
+		# return req.aborted ? true : false
 
 	def setup
 		if isWeb
@@ -123,9 +151,10 @@ export class Router
 
 			let url = self.url
 			# if url and @redirects[url]
-			history.replaceState({},null,normalize(url))
-			window:onpopstate = do |e| onpopstate(e)
-				
+			history.replaceState(state,null,normalize(url))
+			window:onpopstate = self:onpopstate.bind(self) # do |e| onpopstate(e)
+			window:onbeforeunload = self:onbeforeunload.bind(self)
+
 			@hash = location:hash
 			window.addEventListener('hashchange') do |e|
 				emit('hashchange',@hash = location:hash)
@@ -159,7 +188,7 @@ export class Router
 
 	def setHash value
 		if isWeb
-			console.log "set hash",serializeParams(value)
+			# console.log "set hash",serializeParams(value)
 			# will set without jumping
 			history.replaceState({},null,'#' + serializeParams(value)) # last state?
 			# location:hash = serializeParams(value)
@@ -176,8 +205,8 @@ export class Router
 		# remove hash if we are hash-based and url includes hash
 		url = @redirects[url] or url
 		# call from here instead?
-		history.pushState(state,null,normalize(url))
-		refresh
+		# history.pushState(state,null,normalize(url))
+		refresh(push: yes, path: url, state: state)
 
 		isWeb and onReady do
 			let hash = location:hash

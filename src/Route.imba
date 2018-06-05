@@ -31,10 +31,12 @@ export class Route
 				return "([^\/\#\?]+)"
 
 		path = '^' + path
-		if @options:exact and path[path:length - 1] != '$'
+		let end = path[path:length - 1]
+		if @options:exact and end != '$'
 			path = path + '(?=[\#\?]|$)'
-		else
+		elif end != '/' and end != '$'
 			# we only want to match end OR /
+			# if path[path:length - 1]
 			path = path + '(?=[\/\#\?]|$)'
 		@regex = RegExp.new(path)
 		self

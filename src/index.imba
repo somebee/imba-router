@@ -62,7 +62,7 @@ export class Router
 			# warn if multiple instances?
 			@instance ||= self
 			@clickHandler = do |e| onclick(e)
-			@captor = document.addEventListener('click',@clickHandler,yes)
+			@captor = window.addEventListener('click',@clickHandler,yes)
 		self
 		
 	def option key, value

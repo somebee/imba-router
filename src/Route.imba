@@ -34,7 +34,7 @@ export class Route
 		let end = path[path:length - 1]
 		if @options:exact and end != '$'
 			path = path + '(?=[\#\?]|$)'
-		elif end != '/' and end != '$'
+		elif (end != '/' and end != '$' and path != '^/')
 			# we only want to match end OR /
 			# if path[path:length - 1]
 			path = path + '(?=[\/\#\?]|$)'

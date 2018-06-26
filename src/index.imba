@@ -231,10 +231,24 @@ export class Router
 	def on name, *params do Imba.listen(self,name,*params)
 	def once name, *params do Imba.once(self,name,*params)
 	def un name, *params do Imba.unlisten(self,name,*params)
+	
+	# bound to target
+	def tapRouteHandler e
+		let el = dom
+		let href = dom.getAttribute('href')
+
+		if el:nodeName != 'A' and (e.meta or e.alt)
+			e.stop.prevent
+			window.open(href,'_blank')
+
+		let ev = trigger('taproute',path: href, sourceEvent: e, router: router) # include metaKey etc
+		unless ev.isPrevented
+			e.stop.prevent
+			(e.meta or e.alt) ? window.open(href,'_blank') : router.go(href,{})
+		return
 
 	def onclick e
 		# console.log "onclick",e, e:defaultPrevented
-
 		let i = 0
 		# let path = e:path
 		let el = e:target
@@ -255,18 +269,8 @@ export class Router
 				el.@tag.resolveRoute
 				href = el.getAttribute('href')
 
-			if el:nodeName != 'A' and (e:metaKey or e:altKey)
-				e.preventDefault
-				e.stopPropagation
-				window.open(href,'_blank')
-
-			# what if we have no tag for this?
-			# trigger anyhow?
-			let ev = el.@tag.trigger('taproute',path: href, sourceEvent: e, router: self) # include metaKey etc
-			unless ev.isPrevented
-				e.preventDefault
-				e.stopPropagation
-				(e:metaKey or e:altKey) ? window.open(href,'_blank') : go(href,{})
+			el.@tag['on$'](-20,['tap',self:tapRouteHandler])
+			return
 		self
 
 const LinkExtend =

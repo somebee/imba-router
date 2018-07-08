@@ -1,30 +1,21 @@
 require '../lib/index'
 var api = require './api'
 
-tag Customer
+tag Customer < section
 	prop list
 	prop orders
 	
 	def load params, next
 		data = null
-		# renderLoading
 
 		for item in list
 			if item:id == params:id
 				break data = item
 		
 		orders = await api.rpc("/customers/{params:id}/orders.json")
-		
-		unless data
-			console.log "could not find!!!"
-			return 404
-		return 200
-		
-	def renderLoading
-		<self> "Loading!"
+		return data ? 200 : 404
 
 	def render
-		console.log "Customer#render"
 		unless data
 			return <self> "Loading!"
 
@@ -34,8 +25,7 @@ tag Customer
 			<div.details>
 				<a route-to='info'> 'Info'
 				<a route-to='orders'> 'Orders'
-
-				<div> "Has {orders.len} orders"
+				# <div> "Has {orders.len} orders"
 
 			<div route='info'>	
 				<h2> data:name
@@ -44,7 +34,7 @@ tag Customer
 			<div route='orders' =>
 				<h2> "Orders"
 				<ul> for order in orders
-					<li route-to="/orders/{order:id}"> "Order!! {order:id}"
+					<li route-to="/orders/{order:id}"> "Order #{order:id}"
 
 tag Page
 
@@ -62,6 +52,9 @@ tag Customers < Page
 	
 	def render
 		<self>
+			<nav>
+				<button> "add customer"
+
 			<aside>
 				<input[query] type='text'>
 				<ul.entries>
@@ -77,7 +70,9 @@ tag Order
 	prop list
 
 	def render
-		<self> "Order"
+		<self>
+			<section>
+				"Order "
 
 tag Orders < Page
 
@@ -87,20 +82,61 @@ tag Orders < Page
 
 	def render
 		<self>
+			<nav> <button> "new order"
 			<aside>
 				<ul.entries> for item in data
 					<li.entry.order route.link=item:id>
-						<span.name> item:id
+						<span.name> "Order #" + item:id
 			<Order.main route=':id' list=data>
 
+tag Nested
+	
+	def ontap
+		log 'Nested.ontap?!?'
+		router.go('/customers')
+		
+	def testing
+		log 'testing'
+		self
+
+	def render
+		<self>
+			<div :tap.testing> "Button?"
+			<span> "To customers"
+			<a route-to='/about'> "To about"
+			<div route-to="/orders">
+				<div> "To orders"
+				<div :tap.prevent.stop> "Cancel click before route-to"
+				<a route-to='/about'> "To about"
+				
+tag Home
+	def render
+		<self>
+			<section> "Welcome"
+			<Nested>
+			
+	
+tag About < Page
+	def render
+		<self>
+			<nav>
+				<a route-to='team'> 'Team'
+				<a route-to='contact'> 'Contact'
+				
+			<section route='team'> "About us"
+			<section route='contact'> "Contact us"
+				
+	
 export tag App
 	def render
 		<self>
 			<nav.main>
-				<a route-to.exact='/'> 'Home'
+				<a route-to='/'> 'Home'
 				<a route-to.sticky='/customers'> 'Customers'
 				<a route-to.sticky='/orders'> 'Orders'
 				<a route-to.sticky='/about'> 'About'
-
+			
+			<Home route.exact='/'>
 			<Customers route='/customers'>
 			<Orders route='/orders'>
+			<About route='/about'>

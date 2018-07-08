@@ -2,6 +2,7 @@
     --nav-bg: #202B31;
     --nav-color: #73acfe;
     --nav-active-color: #ffffff;
+    --section-padding: 12px;
 }
 
 html,body {
@@ -28,12 +29,6 @@ div.debug {
 }
 
 .grid {
-    display: grid;
-    grid-row-gap: 4px;
-    grid-column-gap: 4px;
-}
-
-section {
     display: grid;
     grid-row-gap: 4px;
     grid-column-gap: 4px;
@@ -158,20 +153,24 @@ li.done {
     height: 100%;
 }
 
-nav.main {
+nav {
     flex: 0 0 auto;
     background: var(--nav-bg);
     color: var(--nav-color);
     padding: 8px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
 }
 
-nav.main a {
+nav a {
     padding: 4px;
     color: var(--nav-color);
     text-decoration: none;
 }
 
-nav.main a.active {
+nav a.active {
     color: var(--nav-active-color);
 }
 
@@ -181,12 +180,20 @@ aside {
     overflow: auto;
 }
 
+nav ~ aside {
+    grid-area: 2 / 1 / 4 / 2;
+}
+
 .main {
     grid-area: 2 / 2 / 4 / 4;
 }
 
 aside input {
     width: 100%;
+}
+
+section {
+    padding: var(--section-padding);
 }
 
 .entries {
@@ -228,4 +235,12 @@ aside input {
     background: #efefef;
 }
 
+.Page {
+    --nav-bg: #404d56;
+}
+
+.Page > nav {
+    grid-area: 1 / 1 / 1 / 4;
+    background: #404d56;
+}
 

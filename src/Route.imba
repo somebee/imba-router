@@ -22,6 +22,16 @@ export class Route
 		@groups = []
 		@params = {}
 		@cache = {}
+		
+		if path.indexOf('?') >= 0
+			let parts = path.split('?')
+			path = parts.shift
+			@query = {}
+			# loop through and create regexes for matching?
+			for pair in parts.join('?').split('&')
+				var [k,v] = pair.split('=')
+				@query[k] = v or true
+
 		path = path.replace(/\:(\w+|\*)(\.)?/g) do |m,id,dot|
 			# what about :id.:format?
 			@groups.push(id) unless id == '*'
@@ -29,7 +39,10 @@ export class Route
 				return "([^\/\#\.\?]+)\."
 			else
 				return "([^\/\#\?]+)"
-
+		
+		if path == '' and @query
+			return self
+			
 		path = '^' + path
 		let end = path[path:length - 1]
 		if @options:exact and end != '$'
@@ -41,32 +54,57 @@ export class Route
 		@regex = RegExp.new(path)
 		self
 
-	def test url
-		url ||= @router.url # should include hash?
+	def test loc, path
+		# test with location
+		loc ||= @router.location
+		path ||= loc.path
+
+		let url = loc.url
+
 		return @cache:match if url == @cache:url
 
 		let prefix = ''
-		let matcher = @cache:url = url
+		let matcher = path
+		@cache:url = url
 		@cache:match = null
+		let qmatch
+		
+		if @query
+			qmatch = {}
+			for own k,v of @query
+				let m = loc.query(k)
+				let name = k
+				if v[0] == ':'
+					name = v.slice(1)
+					v = true
+
+				if (v == true and m) or v == m
+					qmatch[name] = m
+				else
+					return null
 
 		if @parent and @raw[0] != '/'
-			if let m = @parent.test(url)
-				if url.indexOf(m:path) == 0
+			if let m = @parent.test(loc,path)
+				if path.indexOf(m:path) == 0
 					prefix = m:path + '/'
-					matcher = url.slice(m:path:length + 1)
+					matcher = path.slice(m:path:length + 1)
 		
-		if let match = matcher.match(@regex)
-			let path = prefix + match[0]
-			if path == @params:path
+		# try to match our part of the path with regex
+		if let match = (@regex ? matcher.match(@regex) : [''])
+			let fullpath = prefix + match[0]
+			# nothing changed
+			if fullpath == @params:path
 				@params:url = url
-				return @cache:match = @params
-
-			@params = {path: path, url: url}
-			if @groups:length
-				for item,i in match
-					if let name = @groups[i - 1]
-						@params[name] = item
-
+			else
+				@params = {path: fullpath, url: url}
+				if @groups:length
+					for item,i in match
+						if let name = @groups[i - 1]
+							@params[name] = item
+			if qmatch
+				for own k,v of qmatch
+					@params[k] = v
+			# try to match tab-values as well
 			return @cache:match = @params
 
 		return @cache:match = null

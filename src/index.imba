@@ -1,39 +1,133 @@
 extern encodeURI
 
 import {Route} from './Route'
-
+import {URLSearchParams} from '../lib/util'
 # check if is web
 
 var isWeb = typeof window !== 'undefined'
 
 # proxy for hash
 class Hash
+	
+export class Location
+	
+	def self.parse url
+		if url isa Location
+			return url
+		return self.new(url)
+
+	prop path
+
+	def initialize url
+		parse(url)
+	
+	def parse url
+		var path = @url = url
+		if url.indexOf('?') >= 0
+			let parts = url.split('?')
+			path = parts.shift
+			@searchParams = URLSearchParams.new(parts.join('?'))
+
+		@path = path
+		self
+		
+	def path
+		@path
+		
+	def searchParams
+		@searchParams ||= URLSearchParams.new('')
+	
+	def search
+		let str = @searchParams ? @searchParams.toString : ''
+		str ? ('?' + str) : ''
+		
+	def update value
+		if value isa Object
+			query(k,v) for own k,v of value
+		elif value isa String
+			parse(value)
+		return self
+		
+	def query name, value
+		let q = searchParams
+		return q.get(name) if value === undefined
+		(value == null or value == '') ? q.delete(name) : q.set(name,value)
+	
+	def clone
+		Location.new(toString)
+		
+	def equals other
+		toString == String(other)
+	
+	def url
+		@path + search
+		
+	def toString
+		@path + search
 
 class Request
 	prop router
-	prop path
 	prop referrer
 	prop aborted
+	prop location
 
-	def initialize router, path, referrer
+	def initialize router, location, referrer
 		@router = router
-		@path = @originalPath = path
+		if location
+			@location = Location.parse(location)
+			@original = @location.clone
+
 		@referrer = referrer
+		# @path = @originalPath = path
+		# @referrer = referrer
 
 	def redirect path
-		@redirected = @path = path
+		@location?.update(path)
+		# allow normalizing urls
+		# @redirected = @path = path
 		self
+		
+	def path
+		@location?.path
+		
+	def url
+		@location?.toString
+		
+	def path= value
+		@location.path = value
 
 	def abort
 		@aborted = yes
 		self
 		
-	def url
-		path
-		
 	def match str
 		Route.new(self,str).test
 
+class History
+	def initialize router
+		@router = router
+		@stack = []
+		@pos = -1
+		
+	def pushState state, title, url
+		@stack:length = Math.max(@pos,0)
+		@stack[++@pos] = [state,title,url]
+		# console.log "pushed state {url}"
+		return self
+		
+	def replaceState state, title, url
+		# console.log "replaced state {url}"
+		@stack:length = @pos
+		@stack[@pos] = [state,title,url]
+		
+	def popState
+		@stack:length = @pos + 1
+		@pos -= 1
+		return @stack.pop
+		
+	def currentState
+		@stack[@pos]
+		
 
 export class Router
 	@instance = null
@@ -47,14 +141,13 @@ export class Router
 
 	# support redirects
 	def initialize o = {}
-		@url = o:url or ''
 		@hash = ''
 		@routes = {}
 		@options = o
-		@redirects = o:redirects || {}
-		@aliases = o:aliases || {}
 		@busy = []
 		@root = o:root or ''
+		@history = isWeb ? window:history : History.new(self)
+		@location = Location.new(o:url or '/')
 		mode = o:mode or 'history'
 		setup
 
@@ -73,7 +166,13 @@ export class Router
 		return self
 		
 	def location
-		document:location
+		@location
+		
+	def realLocation
+		if isWeb
+			let loc = document:location
+			return loc:href.slice(loc:origin:length)
+		return String(@location)
 
 	def state
 		{}
@@ -81,11 +180,14 @@ export class Router
 	def refresh params = {}
 		return if @refreshing
 		@refreshing = yes
-		let path = params:path or self.path
-
-		if path != @path
-
-			let req = Request.new(self,path,@path)
+		
+		let original = @location
+		let loc = Location.parse(params:location or realLocation)
+	
+		# we need to compare with the previously stored location
+		if !loc.equals(original)
+			# console.log "actual url has changed!!",String(original),'to',String(loc)
+			let req = Request.new(self,loc,original)
 			
 			emit('beforechange',req)
 
@@ -95,49 +197,43 @@ export class Router
 
 				if res
 					req.aborted = no
-
 				# if we don't confirm, push the previous state again
 				elif params:pop
-					path = @path
-					history.pushState(state,null,normalize(@path))
+					history.pushState(state,null,String(original))
 				elif !params:push
-					history.replaceState(state,null,normalize(@path))
+					history.replaceState(state,null,String(original))
 
 				# if we're not popping - should happen before we are changing
 
 			unless req.aborted
-				@path = req.path
+				@location = req.location
 
 				if params:push
-					# console.log "actually changing url"
-					history.pushState(params:state or state,null,normalize(req.path))
+					history.pushState(params:state or state,null,String(@location))
 				else
-					if path != req.path
-						replace(path = req.path)
+					history.replaceState(params:state or state,null,String(@location))
 					self
-
 				emit('change',req)
 				Imba.commit
-
-			# checking hash?
-			# let e = Imba.Event.wrap(type: 'change')
+		
+		isWeb and onReady do
+			# deprecate
+			let hash = document:location:hash
+			if hash != @hash
+				emit('hashchange',@hash = hash)
 
 		@refreshing = no
 		self
 	
 	def onpopstate e
-		# console.log "onpopstate",e
 		refresh(pop: yes)
 		self
 
 	def onbeforeunload e
-		# console.log "onbeforeunload"
-		let req = Request.new(self,null,self.path)
+		let req = Request.new(self,null,@location)
 		emit('beforechange',req)
 		return true if req.aborted
 		return
-
-		# return req.aborted ? true : false
 
 	def setup
 		if isWeb
@@ -148,33 +244,37 @@ export class Router
 
 			let url = self.url
 			# if url and @redirects[url]
-			history.replaceState(state,null,normalize(url))
+			@location = Location.parse(realLocation)
+			history.replaceState(state,null,String(@location))
 			window:onpopstate = self:onpopstate.bind(self) # do |e| onpopstate(e)
 			window:onbeforeunload = self:onbeforeunload.bind(self)
 
-			@hash = location:hash
+			@hash = document:location:hash
 			window.addEventListener('hashchange') do |e|
-				emit('hashchange',@hash = location:hash)
+				emit('hashchange',@hash = document:location:hash)
 				Imba.commit
 		self
 	
 	def path
-		let url = @url || (isWeb ? (mode == 'hash' ? (hash or '').slice(1) : location:pathname) : '')
-		if @root and url.indexOf(@root) == 0
-			url = url.slice(@root:length)
-		url = '/' if url == ''
-		url = @redirects[url] or url
-		url = @aliases[url] or url
-		return url
+		return @location.path
+		# let url = @url || (isWeb ? (mode == 'hash' ? (hash or '').slice(1) : location:pathname) : '')
+		# if @root and url.indexOf(@root) == 0
+		# 	url = url.slice(@root:length)
+		# url = '/' if url == ''
+		# return url
 		
 	def url
-		var url = self.path
-		if isWeb and mode != 'hash'
-			url += location:hash
-		return url
+		return @location.url
+	
+	def query par,val
+		if par == undefined
+			return @location.searchParams
+		else
+			return @location.query(par,val)
 		
 	def hash
-		(isWeb ? location:hash : '')
+		# @hash?
+		(isWeb ? document:location:hash : '')
 
 	def serializeParams params
 		if params isa Object
@@ -192,29 +292,22 @@ export class Router
 		return self
 		
 	def history
-		window:history
+		@history
 		
 	def match pattern
 		var route = @routes[pattern] ||= Route.new(self,pattern)
 		route.test
 		
 	def go url, state = {}
-		# remove hash if we are hash-based and url includes hash
-		url = @redirects[url] or url
-		# call from here instead?
-		# history.pushState(state,null,normalize(url))
-		refresh(push: yes, path: url, state: state)
-
-		isWeb and onReady do
-			let hash = location:hash
-			if hash != @hash
-				emit('hashchange',@hash = hash)
+		let loc = @location.clone.update(url,state)
+		refresh(push: yes, location: loc, state: state)
 		self
 		
 	def replace url, state = {}
-		url = @redirects[url] or url
-		history.replaceState(state,null,normalize(url))
-		refresh
+		let loc = @location.clone.update(url,state)
+		refresh(replace: yes, location: loc, state: state)
+		# history.replaceState(state,null,normalize(url,state))
+		# refresh
 		
 	def normalize url
 		if mode == 'hash'

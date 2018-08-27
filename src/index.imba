@@ -17,6 +17,7 @@ export class Location
 		return self.new(url)
 
 	prop path
+	prop state
 
 	def initialize url
 		parse(url)
@@ -70,6 +71,8 @@ class Request
 	prop referrer
 	prop aborted
 	prop location
+	prop state
+	prop mode
 
 	def initialize router, location, referrer
 		@router = router
@@ -101,7 +104,7 @@ class Request
 		self
 		
 	def match str
-		Route.new(self,str).test
+		@location ? Route.new(self,str).test : null
 
 class History
 	def initialize router
@@ -176,6 +179,12 @@ export class Router
 
 	def state
 		{}
+		
+	def pushState state, title, url
+		history.pushState(state,title or null,String(url))
+	
+	def replaceState state, title, url
+		history.replaceState(state,title or null,String(url))
 
 	def refresh params = {}
 		return if @refreshing
@@ -183,11 +192,14 @@ export class Router
 		
 		let original = @location
 		let loc = Location.parse(params:location or realLocation)
+		let mode = params:mode
 	
 		# we need to compare with the previously stored location
+		# also see if state is different?
 		if !loc.equals(original)
 			# console.log "actual url has changed!!",String(original),'to',String(loc)
 			let req = Request.new(self,loc,original)
+			req.mode = mode
 			
 			emit('beforechange',req)
 
@@ -198,21 +210,24 @@ export class Router
 				if res
 					req.aborted = no
 				# if we don't confirm, push the previous state again
-				elif params:pop
-					history.pushState(state,null,String(original))
-				elif !params:push
-					history.replaceState(state,null,String(original))
+				elif mode == 'pop' # params:pop
+					pushState(state,null,String(original))
+				elif mode == 'replace' # mode != 'push' # !params:push
+					replaceState(state,null,String(original))
 
 				# if we're not popping - should happen before we are changing
 
 			unless req.aborted
 				@location = req.location
 
-				if params:push
-					history.pushState(params:state or state,null,String(@location))
-				else
-					history.replaceState(params:state or state,null,String(@location))
-					self
+				if mode == 'push'
+					pushState(params:state or state,null,String(@location))
+				elif mode == 'replace' # params:replace
+					replaceState(params:state or state,null,String(@location))
+					
+				if isWeb
+					@location.state = window:history:state
+					
 				emit('change',req)
 				Imba.commit
 		
@@ -226,7 +241,7 @@ export class Router
 		self
 	
 	def onpopstate e
-		refresh(pop: yes)
+		refresh(pop: yes, mode: 'pop')
 		self
 
 	def onbeforeunload e
@@ -300,12 +315,12 @@ export class Router
 		
 	def go url, state = {}
 		let loc = @location.clone.update(url,state)
-		refresh(push: yes, location: loc, state: state)
+		refresh(push: yes, mode: 'push', location: loc, state: state)
 		self
 		
 	def replace url, state = {}
 		let loc = @location.clone.update(url,state)
-		refresh(replace: yes, location: loc, state: state)
+		refresh(replace: yes, mode: 'replace', location: loc, state: state)
 		# history.replaceState(state,null,normalize(url,state))
 		# refresh
 		

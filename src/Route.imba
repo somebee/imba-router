@@ -29,8 +29,15 @@ export class Route
 			@query = {}
 			# loop through and create regexes for matching?
 			for pair in parts.join('?').split('&')
+				continue unless pair
 				var [k,v] = pair.split('=')
-				@query[k] = v or true
+				if k[0] == '!'
+					k = k.slice(1)
+					v = false
+				if v === ''
+					v = false
+
+				@query[k] = v or (v === false ? false : true)
 
 		path = path.replace(/\:(\w+|\*)(\.)?/g) do |m,id,dot|
 			# what about :id.:format?
@@ -74,6 +81,11 @@ export class Route
 			for own k,v of @query
 				let m = loc.query(k)
 				let name = k
+				# no match
+				if v === false
+					return null	if m
+					continue
+				
 				if v[0] == ':'
 					name = v.slice(1)
 					v = true
@@ -156,14 +168,24 @@ export class Route
 		
 		# let base = @router.root or ''
 		let base = ''
+		let raw = @raw
 		@cache:resolveUrl = url # base + url
+		
+		# if @query
+		# 	raw = raw.slice(0,raw.indexOf('?'))
+		# 	# add / remove params from url
 		
 		if @parent and @raw[0] != '/'
 			if let m = @parent.test
-				@cache:resolved = base + m:path + '/' + @raw # .replace('$','')
+				# what if 
+				if raw[0] == '?'
+					# possibly replace with & or even replace param?
+					@cache:resolved = base + m:path + raw
+				else
+					@cache:resolved = base + m:path + '/' + raw
 		else
 			# FIXME what if the url has some unknowns?
-			@cache:resolved = base + @raw # .replace(/[\@\$]/g,'')
+			@cache:resolved = base + raw # .replace(/[\@\$]/g,'')
 
 		return @cache:resolved
 		

@@ -28,6 +28,9 @@ export class Location
 			let parts = url.split('?')
 			path = parts.shift
 			@searchParams = URLSearchParams.new(parts.join('?'))
+		elif @searchParams and @path and @path != path
+			# if we change location - search-params are wiped out
+			@searchParams = null
 
 		@path = path
 		self
@@ -205,6 +208,7 @@ export class Router
 
 			if req.aborted
 				# console.log "request was aborted",params
+				# what about silent abort?
 				var res = window.confirm("Are you sure you want to leave? You might have unsaved changes")
 
 				if res
@@ -313,6 +317,9 @@ export class Router
 		var route = @routes[pattern] ||= Route.new(self,pattern)
 		route.test
 		
+	def route pattern
+		@routes[pattern] ||= Route.new(self,pattern)
+		
 	def go url, state = {}
 		let loc = @location.clone.update(url,state)
 		refresh(push: yes, mode: 'push', location: loc, state: state)
@@ -368,7 +375,7 @@ export class Router
 			break if href = el.getAttribute('href')
 			el = el:parentNode
 
-		if !el or !href or (href[0] != '#' and href[0] != '/')
+		if !el or !href or (href[0] != '#' and href[0] != '/' and href[0] != '?')
 			return
 
 		# deal with alternative routes
@@ -397,7 +404,7 @@ const LinkExtend =
 		var href = self:href ? self.href : dom:href
 		return unless href
 
-		if (href[0] != '#' and href[0] != '/')
+		if (href[0] != '#' and href[0] != '/' and href[0] != '?')
 			e.@responder = null
 			e.prevent.stop
 			return window.open(href,'_blank')
@@ -541,7 +548,7 @@ extend tag element
 		# isWeb ? Router.instance : (@router or (@owner_ ? @owner_.router : (@router ||= Router.new)))
 
 	def routeDidLoad params
-		log 'routeDidLoad'
+		# log 'routeDidLoad'
 		self
 
 	def routeDidFail error

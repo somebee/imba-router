@@ -102,10 +102,11 @@ class Request
 	def path= value
 		@location.path = value
 
-	def abort
+	def abort forced = no
 		@aborted = yes
+		@forceAbort = forced if forced
 		self
-		
+
 	def match str
 		@location ? Route.new(self,str).test : null
 
@@ -209,7 +210,7 @@ export class Router
 			if req.aborted
 				# console.log "request was aborted",params
 				# what about silent abort?
-				var res = window.confirm("Are you sure you want to leave? You might have unsaved changes")
+				var res = !req.@forceAbort && window.confirm("Are you sure you want to leave? You might have unsaved changes")
 
 				if res
 					req.aborted = no

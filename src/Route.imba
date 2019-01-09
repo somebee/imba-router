@@ -104,6 +104,7 @@ export class Route
 		# try to match our part of the path with regex
 		if let match = (@regex ? matcher.match(@regex) : [''])
 			let fullpath = prefix + match[0]
+			let prevParams = @params
 			# nothing changed
 			if fullpath == @params:path
 				@params:url = url
@@ -114,8 +115,14 @@ export class Route
 						if let name = @groups[i - 1]
 							@params[name] = item
 			if qmatch
+				let change = no
 				for own k,v of qmatch
-					@params[k] = v
+					if @params[k] != v
+						change = yes
+						@params[k] = v
+
+				if change and prevParams == @params
+					@params = Object.assign({},@params)
 			# try to match tab-values as well
 			return @cache:match = @params
 

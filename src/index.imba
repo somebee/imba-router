@@ -467,6 +467,7 @@ const RoutedExtend =
 
 	def resolveRoute next
 		let prev = @params
+		let prevUrl = prev and prev:url
 		let match = @route.test
 
 		if match
@@ -476,19 +477,17 @@ const RoutedExtend =
 			if match != prev
 				params = match
 
-			if match != prev or !active
-				routeDidMatch(match,prev)
+			if match != prev or !active or (match:url != prevUrl)
+				routeDidResolve(match,prev)
 
 			if !active
 				# match.@active = true
 				# should happen after load?
-				attachToParent
-				Imba.commit
+				routeDidEnter
 
 		elif prev and prev.@active
 			prev.@active = false
-			detachFromParent
-			Imba.commit
+			routeDidLeave
 
 
 extend tag element
@@ -555,18 +554,33 @@ extend tag element
 	def routeDidFail error
 		self
 
-	def routeDidMatch params, prev
-		unless self:load
+	def routeDidMatch
+		self
+
+	def routeDidEnter
+		attachToParent
+		Imba.commit
+		self
+
+	def routeDidLeave
+		detachFromParent
+		Imba.commit
+		self
+
+	def routeDidResolve params, prev
+		if !self:load or (params == prev and !self:reload)
+			routeDidMatch(params)
 			routeDidLoad(params,prev)
 			return self
 
 		route.load do
+			routeDidMatch(params)
 			let val
 			try
-				if params == prev and self:reload
-					val = await self.reload(params,prev)
-				else
+				if params != prev
 					val = await self.load(params,prev)
+				elif self:reload
+					val = await self.reload(params,prev)
 			catch e
 				# log "route error",e
 				val = 400

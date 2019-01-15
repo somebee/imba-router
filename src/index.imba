@@ -6,6 +6,7 @@ import {URLSearchParams} from '../lib/util'
 
 var isWeb = typeof window !== 'undefined'
 
+var ROUTES = {}
 # proxy for hash
 class Hash
 	
@@ -40,6 +41,8 @@ export class Location
 		
 	def searchParams
 		@searchParams ||= URLSearchParams.new('')
+		
+	# should definitely add match here
 	
 	def search
 		let str = @searchParams ? @searchParams.toString : ''
@@ -68,6 +71,13 @@ export class Location
 		
 	def toString
 		@path + search
+		
+	def location
+		self
+		
+	def match str
+		let route = ROUTES[str] ||= Route.new(null,str)
+		route.test(self)
 
 class Request
 	prop router
@@ -544,7 +554,7 @@ extend tag element
 		return self
 
 	def router
-		@router ||= (@owner_ and @owner_.router or Router.new)
+		@router ||= (@owner_ and @owner_.router or Router.instance)
 		# isWeb ? Router.instance : (@router or (@owner_ ? @owner_.router : (@router ||= Router.new)))
 
 	def routeDidLoad params

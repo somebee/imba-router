@@ -9,5 +9,6 @@ var app = <App router=router>
 # we wait until the router has finished loading
 # until we replace the document with our mounted app
 router.onReady do 
-	document:body:innerHTML = ''
-	Imba.mount app
+	if $web$
+		document:body:innerHTML = ''
+		Imba.mount app

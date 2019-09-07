@@ -20,8 +20,6 @@ app.get(/.*/) do |req,res|
 		<body>
 			# include the app tag in body
 			<App>
-			# include the script for our application
-			<script src='/bundle.js'>
 	
 	node.router.onReady do 
 		console.log "onready",path

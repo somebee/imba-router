@@ -16,7 +16,8 @@
   ],
   "scripts": {
     "test": "imba test/index.imba",
-    "watch": "imbac -w -o lib src"
+    "watch": "imbac -w -o lib src",
+    "build": "imbac -o lib src"
   },
   "bugs": "https://github.com/somebee/imba-router/issues",
   "version": "0.4.0",

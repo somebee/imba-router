@@ -3,8 +3,10 @@ import {Router} from '../src'
 
 const express = require('express')
 const app = express()
+const path = require('path')
 
-app.use(express.static('./'))
+const public = path.join(__dirname, '.')
+app.use(express.static(public))
 
 app.get(/.*/) do |req,res|
 	var path = req:path

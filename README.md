@@ -1,2 +1,2 @@
 # imba-router
-Experimental router for Imba
+Official router for Imba
